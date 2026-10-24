@@ -82,7 +82,6 @@ object Sonda {
             sb.appendLine("  ${nomeIngresso(context, info)}$porta · ${stato(manager, info.id)}")
             sb.appendLine("    id: ${info.id.substringAfterLast('/')}")
         }
-        sb.appendLine("Screensaver dalla Home: " + (Salvaschermo.attesa(context)?.let { "dopo ${it / 60_000} min" } ?: "spento sulla TV"))
         sb.appendLine("Pagine impostazioni Sony apribili: ${schermateSony(context).joinToString(", ") { nomeBreve(it) }.ifBlank { "nessuna" }}")
         sb.appendLine("Ultimi tasti:")
         sb.appendLine(ultime(Registro.leggi(context, Registro.TASTI), 10))
