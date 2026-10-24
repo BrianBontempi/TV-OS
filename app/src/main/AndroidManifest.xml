@@ -11,6 +11,8 @@
     <!-- Solo per scaricare l'ultima versione dell'app da GitHub e installarla. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Per "Disinstalla" nel menu di un'app: la TV chiede comunque conferma. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <application
         android:banner="@drawable/banner"
