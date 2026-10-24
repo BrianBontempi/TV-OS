@@ -14,6 +14,8 @@ import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.TextUtils
 import android.util.TypedValue
@@ -55,6 +57,8 @@ class HomeActivity : Activity() {
     // L'app che si sta spostando con le frecce, e la sua animazione "tremolante" come su Apple TV.
     private var spostata: View? = null
     private var tremolio: ObjectAnimator? = null
+    private val orologio = Handler(Looper.getMainLooper())
+    private val avviaSalvaschermo = Runnable { Salvaschermo.avvia(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -150,6 +154,23 @@ class HomeActivity : Activity() {
         caricaSorgenti()
         controllaTastoHome()
         Meteo.aggiorna { dati -> runOnUiThread { mostraMeteo(dati) } }
+        programmaSalvaschermo()
+    }
+
+    override fun onPause() {
+        orologio.removeCallbacks(avviaSalvaschermo)
+        super.onPause()
+    }
+
+    // Ogni tasto premuto rimanda lo screensaver.
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        programmaSalvaschermo()
+    }
+
+    private fun programmaSalvaschermo() {
+        orologio.removeCallbacks(avviaSalvaschermo)
+        Salvaschermo.attesa(this)?.let { orologio.postDelayed(avviaSalvaschermo, it) }
     }
 
     /** Meteo sopra la barra delle app; resta nascosto finché non arrivano i dati. */
@@ -194,6 +215,7 @@ class HomeActivity : Activity() {
     /** Mentre un'app si sposta, le frecce la muovono nella riga e OK o Indietro la lasciano lì. */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val vista = spostata ?: return super.dispatchKeyEvent(event)
+        onUserInteraction()
         if (event.action == KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> muovi(vista, -1)
