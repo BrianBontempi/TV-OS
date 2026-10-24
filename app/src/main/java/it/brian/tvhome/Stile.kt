@@ -10,9 +10,13 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
+import android.widget.TextView
 
 /** Colori e forme del design v3: vetro chiaro su sfondo aurora. */
 object Stile {
@@ -39,6 +43,27 @@ object Stile {
     fun pieno(context: Context, raggio: Int, colore: Int) = GradientDrawable().apply {
         cornerRadius = dp(context, raggio).toFloat()
         setColor(colore)
+    }
+
+    /** Pillola di vetro per il telecomando: selezionata diventa bianca, con il testo scuro, e si ingrandisce un po'. */
+    fun pillola(context: Context, etichetta: String, azione: () -> Unit) = TextView(context).apply {
+        text = etichetta
+        setTextColor(TESTO)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+        typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        gravity = Gravity.CENTER
+        isFocusable = true
+        isClickable = true
+        maxLines = 1
+        background = vetro(context, 22)
+        setPadding(dp(context, 20), 0, dp(context, 20), 0)
+        setOnFocusChangeListener { vista, focus ->
+            vista.background = if (focus) pieno(context, 22, Color.WHITE) else vetro(context, 22)
+            setTextColor(if (focus) SCURO else TESTO)
+            val scala = if (focus) 1.06f else 1f
+            vista.animate().scaleX(scala).scaleY(scala).setDuration(120).start()
+        }
+        setOnClickListener { azione() }
     }
 }
 
