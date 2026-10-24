@@ -32,6 +32,7 @@ class HomeActivity : Activity() {
     private lateinit var data: TextView
     private lateinit var rigaApp: LinearLayout
     private lateinit var rigaSorgenti: LinearLayout
+    private lateinit var avvisoHome: View
     private var pacchettiMostrati = emptyList<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,6 +58,11 @@ class HomeActivity : Activity() {
         }
         contenuto.addView(saluto)
         contenuto.addView(data)
+        avvisoHome = pillola("Il tasto HOME porta ancora a Google", "Sistema", Color.rgb(255, 159, 10)) { sistemaTastoHome() }.apply {
+            layoutParams = LinearLayout.LayoutParams(WRAP, dp(44)).apply { topMargin = dp(20) }
+            visibility = View.GONE
+        }
+        contenuto.addView(avvisoHome)
         contenuto.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
 
         rigaApp = LinearLayout(this).apply {
@@ -64,19 +70,16 @@ class HomeActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             clipChildren = false
             clipToPadding = false
-            setPadding(dp(18), dp(16), dp(18), dp(12))
+            setPadding(dp(22), dp(18), dp(22), dp(14))
         }
+        // Le app scorrono dentro il pannello di vetro e non ne escono: il pannello taglia ai suoi bordi arrotondati.
         val scorrimentoApp = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
-            clipChildren = false
-            clipToPadding = false
             addView(rigaApp)
         }
         val pannelloApp = FrameLayout(this).apply {
             background = Stile.vetro(this@HomeActivity, 20)
-            clipChildren = false
-            clipToPadding = false
-            setPadding(dp(4), dp(4), dp(4), dp(4))
+            clipToOutline = true
             addView(scorrimentoApp)
         }
         contenuto.addView(pannelloApp, LinearLayout.LayoutParams(MATCH, WRAP))
@@ -105,6 +108,7 @@ class HomeActivity : Activity() {
         aggiornaSaluto()
         caricaApp()
         caricaSorgenti()
+        controllaTastoHome()
     }
 
     // La Home non si chiude con Indietro.
@@ -128,7 +132,26 @@ class HomeActivity : Activity() {
             addView(pillola("Audio") { apriSony(audio, "Audio Sony") })
         }
         addView(pillola("Impostazioni") { avvia(Intent(Settings.ACTION_SETTINGS), "Impostazioni") })
-        addView(pillola("TV Home") { avvia(Intent(this@HomeActivity, ProvaActivity::class.java), "Diagnostica") })
+        addView(pillola("Diagnostica") { avvia(Intent(this@HomeActivity, ProvaActivity::class.java), "Diagnostica") })
+    }
+
+    private fun servizioAttivo(): Boolean {
+        val attivi = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
+        val servizio = ComponentName(this, HomeKeyService::class.java)
+        return attivi.split(':').any {
+            it.equals(servizio.flattenToString(), true) || it.equals(servizio.flattenToShortString(), true)
+        }
+    }
+
+    /** Mostra l'avviso se il tasto HOME non può arrivare a noi: servizio spento o intercettazione disattivata. */
+    private fun controllaTastoHome() {
+        avvisoHome.visibility = if (servizioAttivo() && Registro.intercettaHome(this)) View.GONE else View.VISIBLE
+    }
+
+    private fun sistemaTastoHome() {
+        Registro.impostaIntercettaHome(this, true)
+        if (servizioAttivo()) controllaTastoHome()
+        else avvia(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), "Impostazioni accessibilità")
     }
 
     private fun aggiornaSaluto() {
@@ -163,8 +186,7 @@ class HomeActivity : Activity() {
         val avevaFocus = rigaSorgenti.hasFocus()
         rigaSorgenti.removeAllViews()
         for (sorgente in Sorgenti.elenco(this)) {
-            val etichetta = if (sorgente.porta != null) "${sorgente.nome} · ${sorgente.porta}" else sorgente.nome
-            rigaSorgenti.addView(pillola(etichetta, puntino = if (sorgente.accesa) Color.WHITE else Color.argb(115, 255, 255, 255)) {
+            rigaSorgenti.addView(pillola(sorgente.nome, sorgente.porta, if (sorgente.accesa) Color.WHITE else Color.argb(115, 255, 255, 255)) {
                 Sorgenti.apri(this, sorgente)
             })
         }
@@ -177,7 +199,8 @@ class HomeActivity : Activity() {
         val banner: Drawable? = app.activityInfo.loadBanner(pm) ?: app.activityInfo.applicationInfo.loadBanner(pm)
 
         val immagine = FrameLayout(this).apply {
-            background = Stile.pieno(this@HomeActivity, 12, Color.WHITE)
+            // Fondo scuro: dietro gli angoli arrotondati dei banner non deve vedersi il bianco.
+            background = Stile.pieno(this@HomeActivity, 12, if (banner != null) Color.rgb(20, 20, 30) else Color.argb(46, 255, 255, 255))
             clipToOutline = true
             if (banner != null) {
                 addView(ImageView(this@HomeActivity).apply {
@@ -223,7 +246,7 @@ class HomeActivity : Activity() {
         }
     }
 
-    private fun pillola(etichetta: String, puntino: Int? = null, azione: () -> Unit): View {
+    private fun pillola(etichetta: String, secondario: String? = null, puntino: Int? = null, azione: () -> Unit): View {
         val normale = Stile.vetro(this, 22)
         val selezionata = Stile.vetroSelezionato(this, 22)
         return LinearLayout(this).apply {
@@ -238,6 +261,12 @@ class HomeActivity : Activity() {
                     LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(10) })
             }
             addView(testo(etichetta, 14f, Typeface.BOLD))
+            if (secondario != null) {
+                addView(testo(secondario, 12f, Typeface.NORMAL).apply {
+                    setTextColor(Stile.TESTO_SECONDARIO)
+                    setPadding(dp(8), 0, 0, 0)
+                })
+            }
             layoutParams = LinearLayout.LayoutParams(WRAP, dp(44)).apply { marginStart = dp(10) }
             setOnFocusChangeListener { vista, focus ->
                 vista.background = if (focus) selezionata else normale
