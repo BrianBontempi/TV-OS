@@ -17,7 +17,8 @@ class HomeKeyService : AccessibilityService() {
         val pacchetto = event.packageName?.toString() ?: return
         val classe = event.className?.toString().orEmpty()
         Registro.aggiungi(this, Registro.SCHERMATE, "$pacchetto / $classe")
-        if (Registro.intercettaHome(this) && pacchetto in HOME_GOOGLE) {
+        // Solo la schermata Home vera: i pannelli di Google (impostazioni rapide, ingressi) restano utilizzabili.
+        if (Registro.intercettaHome(this) && pacchetto in HOME_GOOGLE && classe.endsWith("HomeActivity")) {
             Registro.aggiungi(this, Registro.EVENTI, "Home Google comparsa: riapro TV Home")
             apriTvHome()
         }
@@ -46,7 +47,7 @@ class HomeKeyService : AccessibilityService() {
     private fun apriTvHome() {
         try {
             startActivity(
-                Intent(this, MainActivity::class.java)
+                Intent(this, HomeActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             )
         } catch (e: Exception) {

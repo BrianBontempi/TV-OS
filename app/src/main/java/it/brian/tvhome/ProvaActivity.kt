@@ -19,8 +19,8 @@ import android.widget.TextView
 import android.widget.Toast
 import kotlin.concurrent.thread
 
-/** Schermata della versione di prova: pulsanti per i test e rapporto completo da fotografare o salvare. */
-class MainActivity : Activity() {
+/** Schermata di diagnostica (ex versione di prova): test, aggiornamento dell'app e rapporto da fotografare. */
+class ProvaActivity : Activity() {
 
     private lateinit var rigaIngressi: LinearLayout
     private lateinit var pulsanteHome: Button
@@ -38,7 +38,7 @@ class MainActivity : Activity() {
         }
 
         val versione = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "?" }
-        radice.addView(testo("TV Home · versione di prova $versione", 32f, true))
+        radice.addView(testo("TV Home · diagnostica $versione", 32f, true))
         radice.addView(testo("Premi i pulsanti per i test, poi fotografa il rapporto o salvalo su chiavetta USB.", 18f, false))
 
         pulsanteHome = pulsante("") { cambiaIntercettaHome() }
