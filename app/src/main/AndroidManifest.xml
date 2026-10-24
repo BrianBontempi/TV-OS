@@ -41,6 +41,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".RapportoActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ProvaActivity"
             android:exported="false"
             android:launchMode="singleTask" />

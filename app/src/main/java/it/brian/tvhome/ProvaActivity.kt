@@ -52,6 +52,7 @@ class ProvaActivity : Activity() {
             pulsante("Svuota registro") { Registro.svuota(this); aggiorna() }
         ))
         radice.addView(riga(
+            pulsante("Rapporto a schermo intero") { RapportoActivity.apri(this, "Rapporto completo", ultimoRapporto.ifBlank { "Raccolta dati in corso: riprova tra qualche secondo." }) },
             pulsante("Impostazioni") { apri(Intent(Settings.ACTION_SETTINGS), "Impostazioni") },
             pulsante("Schermo") { apri(Intent(Settings.ACTION_DISPLAY_SETTINGS), "Impostazioni schermo") },
             pulsante("Audio") { apri(Intent(Settings.ACTION_SOUND_SETTINGS), "Impostazioni audio") }
@@ -130,7 +131,13 @@ class ProvaActivity : Activity() {
     /** Solo letture verso il Controllo IP Sony: non cambia nessuna impostazione. */
     private fun provaControlloIp() {
         avviso("Prova del controllo IP in corso…")
-        ControlloIp.avvia(this) { esito -> runOnUiThread { avviso(esito); aggiorna() } }
+        ControlloIp.avvia(this) { esito ->
+            runOnUiThread {
+                avviso(esito)
+                aggiorna()
+                RapportoActivity.apri(this, "Controllo IP Sony", ControlloIp.ultimoEsito(this))
+            }
+        }
     }
 
     private fun cambiaIntercettaHome() {
