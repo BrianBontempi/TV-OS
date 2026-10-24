@@ -6,9 +6,11 @@ import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.provider.Settings
+import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
@@ -33,6 +35,9 @@ class HomeActivity : Activity() {
     private lateinit var rigaApp: LinearLayout
     private lateinit var rigaSorgenti: LinearLayout
     private lateinit var avvisoHome: View
+    private lateinit var scorrimentoApp: HorizontalScrollView
+    private var larghezzaApp = 0
+    private var primaVisibile = 0
     private var pacchettiMostrati = emptyList<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,16 +70,23 @@ class HomeActivity : Activity() {
         contenuto.addView(avvisoHome)
         contenuto.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
 
+        // Sempre APP_VISIBILI app intere, con margine laterale uguale allo spazio tra un'app e l'altra.
+        // Le app fuori vista finiscono oltre il bordo del pannello, che le taglia: non se ne vedono mai pezzi.
+        val larghezzaPannello = resources.displayMetrics.widthPixels - 2 * dp(48)
+        larghezzaApp = (larghezzaPannello - (APP_VISIBILI + 1) * dp(SPAZIO_APP)) / APP_VISIBILI
         rigaApp = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             clipChildren = false
-            clipToPadding = false
-            setPadding(dp(22), dp(18), dp(22), dp(14))
         }
-        // Le app scorrono dentro il pannello di vetro e non ne escono: il pannello taglia ai suoi bordi arrotondati.
-        val scorrimentoApp = HorizontalScrollView(this).apply {
+        scorrimentoApp = object : HorizontalScrollView(this) {
+            // Lo scorrimento lo decidiamo noi, un'app intera alla volta.
+            override fun computeScrollDeltaToGetChildRectOnScreen(rect: Rect?): Int = 0
+        }.apply {
             isHorizontalScrollBarEnabled = false
+            clipToPadding = false
+            clipChildren = false
+            setPadding(dp(SPAZIO_APP), dp(20), dp(SPAZIO_APP), dp(14))
             addView(rigaApp)
         }
         val pannelloApp = FrameLayout(this).apply {
@@ -178,7 +190,13 @@ class HomeActivity : Activity() {
 
         val avevaFocus = rigaApp.hasFocus()
         rigaApp.removeAllViews()
-        for (app in trovate) rigaApp.addView(riquadroApp(app))
+        trovate.forEachIndexed { indice, app ->
+            rigaApp.addView(riquadroApp(app), LinearLayout.LayoutParams(larghezzaApp, WRAP).apply {
+                marginStart = if (indice == 0) 0 else dp(SPAZIO_APP)
+            })
+        }
+        primaVisibile = 0
+        scorrimentoApp.scrollTo(0, 0)
         if (avevaFocus) rigaApp.getChildAt(0)?.requestFocus()
     }
 
@@ -223,6 +241,7 @@ class HomeActivity : Activity() {
             setTextColor(Stile.TESTO_SECONDARIO)
             gravity = Gravity.CENTER
             maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
             setPadding(0, dp(10), 0, 0)
         }
 
@@ -232,10 +251,10 @@ class HomeActivity : Activity() {
             isFocusable = true
             isClickable = true
             clipChildren = false
-            addView(riquadro, LinearLayout.LayoutParams(dp(160), dp(90)))
-            addView(etichetta, LinearLayout.LayoutParams(dp(160), WRAP))
-            layoutParams = LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(18) }
+            addView(riquadro, LinearLayout.LayoutParams(larghezzaApp, larghezzaApp * 9 / 16))
+            addView(etichetta, LinearLayout.LayoutParams(larghezzaApp, WRAP))
             setOnFocusChangeListener { vista, focus ->
+                if (focus) mostraApp(rigaApp.indexOfChild(vista))
                 val scala = if (focus) 1.12f else 1f
                 vista.animate().scaleX(scala).scaleY(scala).setDuration(150).start()
                 cornice.animate().alpha(if (focus) 1f else 0f).setDuration(150).start()
@@ -244,6 +263,17 @@ class HomeActivity : Activity() {
             }
             setOnClickListener { apriApp(app.activityInfo.packageName, nome) }
         }
+    }
+
+    /** Fa scorrere la riga di app intere solo quando quella selezionata uscirebbe dal pannello. */
+    private fun mostraApp(indice: Int) {
+        if (indice < 0) return
+        primaVisibile = when {
+            indice < primaVisibile -> indice
+            indice >= primaVisibile + APP_VISIBILI -> indice - APP_VISIBILI + 1
+            else -> primaVisibile
+        }
+        scorrimentoApp.smoothScrollTo(primaVisibile * (larghezzaApp + dp(SPAZIO_APP)), 0)
     }
 
     private fun pillola(etichetta: String, secondario: String? = null, puntino: Int? = null, azione: () -> Unit): View {
@@ -307,6 +337,8 @@ class HomeActivity : Activity() {
     companion object {
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+        private const val APP_VISIBILI = 6
+        private const val SPAZIO_APP = 24
 
         /** Ordine delle app preferite; le altre seguono in ordine alfabetico. */
         private val PREFERITE = listOf(
