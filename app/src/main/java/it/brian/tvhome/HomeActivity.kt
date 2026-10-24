@@ -1,0 +1,294 @@
+package it.brian.tvhome
+
+import android.app.Activity
+import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.ResolveInfo
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.Drawable
+import android.os.Bundle
+import android.provider.Settings
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.KeyEvent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextClock
+import android.widget.TextView
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+
+/** La Home vera: saluto, app con i loro banner rettangolari, console riconosciute e scorciatoie Sony. */
+class HomeActivity : Activity() {
+
+    private lateinit var saluto: TextView
+    private lateinit var data: TextView
+    private lateinit var rigaApp: LinearLayout
+    private lateinit var rigaSorgenti: LinearLayout
+    private var pacchettiMostrati = emptyList<String>()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val radice = FrameLayout(this)
+        radice.addView(SfondoAurora(this), FrameLayout.LayoutParams(MATCH, MATCH))
+
+        val contenuto = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(48), dp(28), dp(48), dp(24))
+            clipChildren = false
+            clipToPadding = false
+        }
+        radice.addView(contenuto, FrameLayout.LayoutParams(MATCH, MATCH))
+
+        contenuto.addView(barraSuperiore())
+
+        saluto = testo("", 40f, Typeface.BOLD).apply { setPadding(0, dp(56), 0, 0) }
+        data = testo("", 15f, Typeface.NORMAL).apply {
+            setTextColor(Stile.TESTO_SECONDARIO)
+            setPadding(0, dp(8), 0, 0)
+        }
+        contenuto.addView(saluto)
+        contenuto.addView(data)
+        contenuto.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
+
+        rigaApp = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
+            setPadding(dp(18), dp(16), dp(18), dp(12))
+        }
+        val scorrimentoApp = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            clipChildren = false
+            clipToPadding = false
+            addView(rigaApp)
+        }
+        val pannelloApp = FrameLayout(this).apply {
+            background = Stile.vetro(this@HomeActivity, 20)
+            clipChildren = false
+            clipToPadding = false
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            addView(scorrimentoApp)
+        }
+        contenuto.addView(pannelloApp, LinearLayout.LayoutParams(MATCH, WRAP))
+
+        rigaSorgenti = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
+            setPadding(0, dp(16), 0, 0)
+        }
+        contenuto.addView(HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            clipChildren = false
+            clipToPadding = false
+            addView(rigaSorgenti)
+        })
+
+        setContentView(radice)
+        caricaApp()
+        rigaApp.getChildAt(0)?.requestFocus()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        aggiornaSaluto()
+        caricaApp()
+        caricaSorgenti()
+    }
+
+    // La Home non si chiude con Indietro.
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean =
+        if (keyCode == KeyEvent.KEYCODE_BACK) true else super.onKeyDown(keyCode, event)
+
+    private fun barraSuperiore() = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        clipChildren = false
+        addView(TextClock(this@HomeActivity).apply {
+            format24Hour = "HH:mm"
+            format12Hour = "HH:mm"
+            setTextColor(Stile.TESTO)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+            setTypeface(typeface, Typeface.BOLD)
+        })
+        addView(View(this@HomeActivity), LinearLayout.LayoutParams(0, 1, 1f))
+        addView(pillola("Immagine") { apriSony(Sonda.IMMAGINE_SONY, "Immagine Sony") })
+        Sonda.schermateSony(this@HomeActivity).firstOrNull { Sonda.nomeBreve(it) == "SoundSetting" }?.let { audio ->
+            addView(pillola("Audio") { apriSony(audio, "Audio Sony") })
+        }
+        addView(pillola("Impostazioni") { avvia(Intent(Settings.ACTION_SETTINGS), "Impostazioni") })
+        addView(pillola("TV Home") { avvia(Intent(this@HomeActivity, ProvaActivity::class.java), "Diagnostica") })
+    }
+
+    private fun aggiornaSaluto() {
+        val ora = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        saluto.text = when (ora) {
+            in 5..12 -> "Buongiorno"
+            in 13..17 -> "Buon pomeriggio"
+            else -> "Buonasera"
+        }
+        val oggi = SimpleDateFormat("EEEE d MMMM", Locale.ITALY).format(Date())
+        data.text = "${oggi.replaceFirstChar { it.uppercase() }} · niente pubblicità, solo le tue cose"
+    }
+
+    /** Tutte le app per TV, con le preferite di Brian davanti. Ricostruisce la riga solo se sono cambiate. */
+    private fun caricaApp() {
+        val pm = packageManager
+        val trovate = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER), 0)
+            .filter { it.activityInfo.packageName != packageName }
+            .distinctBy { it.activityInfo.packageName }
+            .sortedWith(compareBy<ResolveInfo>({ posizione(it.activityInfo.packageName) }, { it.loadLabel(pm).toString().lowercase() }))
+        val pacchetti = trovate.map { it.activityInfo.packageName }
+        if (pacchetti == pacchettiMostrati) return
+        pacchettiMostrati = pacchetti
+
+        val avevaFocus = rigaApp.hasFocus()
+        rigaApp.removeAllViews()
+        for (app in trovate) rigaApp.addView(riquadroApp(app))
+        if (avevaFocus) rigaApp.getChildAt(0)?.requestFocus()
+    }
+
+    private fun caricaSorgenti() {
+        val avevaFocus = rigaSorgenti.hasFocus()
+        rigaSorgenti.removeAllViews()
+        for (sorgente in Sorgenti.elenco(this)) {
+            val etichetta = if (sorgente.porta != null) "${sorgente.nome} · ${sorgente.porta}" else sorgente.nome
+            rigaSorgenti.addView(pillola(etichetta, puntino = if (sorgente.accesa) Color.WHITE else Color.argb(115, 255, 255, 255)) {
+                Sorgenti.apri(this, sorgente)
+            })
+        }
+        if (avevaFocus) rigaSorgenti.getChildAt(0)?.requestFocus()
+    }
+
+    private fun riquadroApp(app: ResolveInfo): View {
+        val pm = packageManager
+        val nome = app.loadLabel(pm).toString()
+        val banner: Drawable? = app.activityInfo.loadBanner(pm) ?: app.activityInfo.applicationInfo.loadBanner(pm)
+
+        val immagine = FrameLayout(this).apply {
+            background = Stile.pieno(this@HomeActivity, 12, Color.WHITE)
+            clipToOutline = true
+            if (banner != null) {
+                addView(ImageView(this@HomeActivity).apply {
+                    setImageDrawable(banner)
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                }, FrameLayout.LayoutParams(MATCH, MATCH))
+            } else {
+                addView(ImageView(this@HomeActivity).apply {
+                    setImageDrawable(app.loadIcon(pm))
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                }, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.CENTER))
+            }
+        }
+        val cornice = View(this).apply { background = Stile.vetroSelezionato(this@HomeActivity, 12); alpha = 0f }
+        val riquadro = FrameLayout(this).apply {
+            addView(immagine, FrameLayout.LayoutParams(MATCH, MATCH))
+            addView(cornice, FrameLayout.LayoutParams(MATCH, MATCH))
+        }
+        val etichetta = testo(nome, 11f, Typeface.NORMAL).apply {
+            setTextColor(Stile.TESTO_SECONDARIO)
+            gravity = Gravity.CENTER
+            maxLines = 1
+            setPadding(0, dp(10), 0, 0)
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            isFocusable = true
+            isClickable = true
+            clipChildren = false
+            addView(riquadro, LinearLayout.LayoutParams(dp(160), dp(90)))
+            addView(etichetta, LinearLayout.LayoutParams(dp(160), WRAP))
+            layoutParams = LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(18) }
+            setOnFocusChangeListener { vista, focus ->
+                val scala = if (focus) 1.12f else 1f
+                vista.animate().scaleX(scala).scaleY(scala).setDuration(150).start()
+                cornice.animate().alpha(if (focus) 1f else 0f).setDuration(150).start()
+                etichetta.setTextColor(if (focus) Stile.TESTO else Stile.TESTO_SECONDARIO)
+                etichetta.setTypeface(null, if (focus) Typeface.BOLD else Typeface.NORMAL)
+            }
+            setOnClickListener { apriApp(app.activityInfo.packageName, nome) }
+        }
+    }
+
+    private fun pillola(etichetta: String, puntino: Int? = null, azione: () -> Unit): View {
+        val normale = Stile.vetro(this, 22)
+        val selezionata = Stile.vetroSelezionato(this, 22)
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = normale
+            isFocusable = true
+            isClickable = true
+            setPadding(dp(18), 0, dp(18), 0)
+            if (puntino != null) {
+                addView(View(this@HomeActivity).apply { background = Stile.pieno(this@HomeActivity, 4, puntino) },
+                    LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(10) })
+            }
+            addView(testo(etichetta, 14f, Typeface.BOLD))
+            layoutParams = LinearLayout.LayoutParams(WRAP, dp(44)).apply { marginStart = dp(10) }
+            setOnFocusChangeListener { vista, focus ->
+                vista.background = if (focus) selezionata else normale
+                val scala = if (focus) 1.06f else 1f
+                vista.animate().scaleX(scala).scaleY(scala).setDuration(120).start()
+            }
+            setOnClickListener { azione() }
+        }
+    }
+
+    private fun apriApp(pacchetto: String, nome: String) {
+        val intent = packageManager.getLeanbackLaunchIntentForPackage(pacchetto)
+            ?: packageManager.getLaunchIntentForPackage(pacchetto)
+        if (intent != null) avvia(intent, nome)
+    }
+
+    private fun apriSony(classe: String, descrizione: String) =
+        avvia(Intent().setComponent(ComponentName(Sonda.IMPOSTAZIONI_SONY, classe)), descrizione)
+
+    private fun avvia(intent: Intent, descrizione: String) {
+        try {
+            startActivity(intent)
+            Registro.aggiungi(this, Registro.EVENTI, "Aperto: $descrizione")
+        } catch (e: Exception) {
+            Registro.aggiungi(this, Registro.EVENTI, "Non apribile: $descrizione (${e.javaClass.simpleName})")
+        }
+    }
+
+    private fun testo(contenuto: String, dimensione: Float, stile: Int) = TextView(this).apply {
+        text = contenuto
+        setTextColor(Stile.TESTO)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, dimensione)
+        setTypeface(Typeface.create("sans-serif", stile))
+    }
+
+    private fun dp(valore: Int) = Stile.dp(this, valore)
+
+    companion object {
+        private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
+        private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+
+        /** Ordine delle app preferite; le altre seguono in ordine alfabetico. */
+        private val PREFERITE = listOf(
+            "com.netflix.ninja",
+            "com.google.android.youtube.tv",
+            "com.amazon.amazonvideo.livingroom",
+            "com.disney.disneyplus",
+            "it.rainet.androidtv",
+            "com.spotify.tv.android"
+        )
+
+        private fun posizione(pacchetto: String) = PREFERITE.indexOf(pacchetto).let { if (it < 0) PREFERITE.size else it }
+    }
+}

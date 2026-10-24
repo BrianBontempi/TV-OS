@@ -43,7 +43,7 @@ object Aggiornamento {
                             sessione.fsync(uscita)
                         }
                     }
-                    val esito = Intent(app, MainActivity::class.java).setAction(AZIONE_ESITO)
+                    val esito = Intent(app, ProvaActivity::class.java).setAction(AZIONE_ESITO)
                     val flag = PendingIntent.FLAG_UPDATE_CURRENT or
                         (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
                     sessione.commit(PendingIntent.getActivity(app, id, esito, flag).intentSender)

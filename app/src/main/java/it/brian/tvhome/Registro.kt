@@ -34,7 +34,7 @@ object Registro {
     }
 
     fun intercettaHome(context: Context): Boolean =
-        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getBoolean(INTERCETTA_HOME, false)
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getBoolean(INTERCETTA_HOME, true)
 
     fun impostaIntercettaHome(context: Context, attivo: Boolean) {
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit()

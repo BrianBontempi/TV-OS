@@ -14,7 +14,7 @@ android {
         // Il numero cresce a ogni compilazione su GitHub, così ogni versione aggiorna la precedente.
         val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 3
         versionCode = build
-        versionName = "0.3-prova (build $build)"
+        versionName = "0.4-home (build $build)"
     }
 
     // Firma fissa: senza, ogni compilazione avrebbe una chiave nuova e Android rifiuterebbe l'aggiornamento.
