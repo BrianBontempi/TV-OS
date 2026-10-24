@@ -11,14 +11,16 @@ data class DatiMeteo(val icona: String, val temperatura: Int, val cielo: String,
 
 /**
  * Meteo da Open-Meteo (gratuito, senza account), aggiornato al massimo ogni 30 minuti.
- * La zona si ricava dalla connessione internet (scelta di Brian), una volta per avvio dell'app.
+ * La TV è a Verona: la posizione è fissa, così non serve chiederla a nessun servizio.
  */
 object Meteo {
 
     private const val VALIDITA_MS = 30 * 60 * 1000L
     private var ultimo: DatiMeteo? = null
     private var quando = 0L
-    private var coordinate: Triple<Double, Double, String>? = null
+    private const val LATITUDINE = 45.4384
+    private const val LONGITUDINE = 10.9916
+    private const val CITTA = "Verona"
 
     fun aggiorna(risultato: (DatiMeteo) -> Unit) {
         val inMemoria = ultimo
@@ -28,8 +30,7 @@ object Meteo {
         }
         thread {
             try {
-                val luogo = coordinate ?: posizioneDaRete().also { coordinate = it }
-                val dati = leggiMeteo(luogo.first, luogo.second, luogo.third)
+                val dati = leggiMeteo(LATITUDINE, LONGITUDINE, CITTA)
                 ultimo = dati
                 quando = System.currentTimeMillis()
                 risultato(dati)
@@ -37,17 +38,6 @@ object Meteo {
                 // Senza rete il meteo resta quello di prima, o nascosto.
             }
         }
-    }
-
-    /** Zona approssimativa dall'indirizzo della connessione; se il primo servizio non risponde prova il secondo. */
-    private fun posizioneDaRete(): Triple<Double, Double, String> = try {
-        val json = scarica("https://ipapi.co/json/")
-        if (json.optBoolean("error", false)) throw IllegalStateException("ipapi.co")
-        Triple(json.getDouble("latitude"), json.getDouble("longitude"), json.optString("city"))
-    } catch (e: Exception) {
-        val json = scarica("https://ipwho.is/")
-        if (!json.optBoolean("success", false)) throw IllegalStateException("ipwho.is")
-        Triple(json.getDouble("latitude"), json.getDouble("longitude"), json.optString("city"))
     }
 
     private fun leggiMeteo(lat: Double, lon: Double, citta: String): DatiMeteo {
