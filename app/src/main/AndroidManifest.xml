@@ -41,6 +41,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".ImpostazioniGiocoActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".RapportoActivity"
             android:exported="false" />
 

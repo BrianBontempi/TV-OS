@@ -1,13 +1,10 @@
 package it.brian.tvhome
 
 import android.app.Activity
-import android.content.ComponentName
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -17,7 +14,7 @@ import android.widget.LinearLayout
 import android.widget.TextClock
 import android.widget.TextView
 
-/** Sezione Gaming: una scheda per ogni console riconosciuta sulle HDMI e le impostazioni Sony consigliate. */
+/** Sezione Gaming: una scheda a tutto schermo per ogni console riconosciuta sulle HDMI. */
 class GamingActivity : Activity() {
 
     private lateinit var rigaConsole: LinearLayout
@@ -57,21 +54,19 @@ class GamingActivity : Activity() {
                 setTypeface(typeface, Typeface.BOLD)
             })
         })
-        contenuto.addView(testo("Scegli una console: si apre il suo ingresso HDMI.", 15f, Typeface.NORMAL).apply {
+        contenuto.addView(testo("Gioca apre la console con le tue impostazioni immagine. Immagine serve a sceglierle.", 15f, Typeface.NORMAL).apply {
             setTextColor(Stile.TESTO_SECONDARIO)
             setPadding(0, dp(6), 0, 0)
         })
 
+        // Le schede occupano tutto lo spazio rimasto; il margine lascia posto all'alone quando una è selezionata.
         rigaConsole = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             clipChildren = false
             clipToPadding = false
-            setPadding(0, dp(28), 0, 0)
+            setPadding(dp(ALONE), dp(24), dp(ALONE), dp(ALONE))
         }
-        contenuto.addView(rigaConsole, LinearLayout.LayoutParams(MATCH, WRAP))
-
-        contenuto.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
-        contenuto.addView(pannelloConsigli(), LinearLayout.LayoutParams(MATCH, WRAP))
+        contenuto.addView(rigaConsole, LinearLayout.LayoutParams(MATCH, 0, 1f))
 
         setContentView(radice)
     }
@@ -90,8 +85,8 @@ class GamingActivity : Activity() {
             return
         }
         console.forEachIndexed { indice, sorgente ->
-            rigaConsole.addView(schedaConsole(sorgente), LinearLayout.LayoutParams(0, WRAP, 1f).apply {
-                marginStart = if (indice == 0) 0 else dp(28)
+            rigaConsole.addView(schedaConsole(sorgente), LinearLayout.LayoutParams(0, MATCH, 1f).apply {
+                marginStart = if (indice == 0) 0 else dp(32)
             })
         }
         if (avevaFocus) rigaConsole.getChildAt(0)?.requestFocus()
@@ -108,12 +103,12 @@ class GamingActivity : Activity() {
                 intArrayOf(profilo.colore, scurisci(profilo.colore))
             ).apply { cornerRadii = floatArrayOf(raggio, raggio, raggio, raggio, 0f, 0f, 0f, 0f) }
             addView(etichetta(sorgente.porta ?: "HDMI"), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.START).apply {
-                setMargins(dp(14), dp(14), 0, 0)
+                setMargins(dp(16), dp(16), 0, 0)
             })
             addView(etichetta(if (sorgente.accesa) "● Accesa" else "In riposo"), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END).apply {
-                setMargins(0, dp(14), dp(14), 0)
+                setMargins(0, dp(16), dp(16), 0)
             })
-            addView(testo(sorgente.nome, 28f, Typeface.BOLD).apply { gravity = Gravity.CENTER },
+            addView(testo(sorgente.nome, 38f, Typeface.BOLD).apply { gravity = Gravity.CENTER },
                 FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
         }
 
@@ -124,102 +119,71 @@ class GamingActivity : Activity() {
                 addView(etichetta(funzione), LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = if (i == 0) 0 else dp(8) })
             }
         }
-        val gioca = testo("Gioca", 16f, Typeface.BOLD).apply {
-            gravity = Gravity.CENTER
-            background = Stile.vetro(this@GamingActivity, 22, forte = true)
+        val gioca = pulsante("Gioca") { ProfiliGioco.gioca(this, sorgente) }
+        val immagine = pulsante("Immagine") { ImpostazioniGiocoActivity.apri(this, sorgente.nome) }
+        val pulsanti = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            clipChildren = false
+            addView(gioca, LinearLayout.LayoutParams(0, dp(48), 1f))
+            addView(immagine, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = dp(12) })
         }
         val dettagli = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            clipChildren = false
             setPadding(dp(20), dp(16), dp(20), dp(20))
-            addView(testo(profilo.caratteristiche, 14f, Typeface.NORMAL).apply { setTextColor(Stile.TESTO_SECONDARIO) })
+            addView(testo(profilo.caratteristiche, 15f, Typeface.NORMAL).apply { setTextColor(Stile.TESTO_SECONDARIO) })
             if (profilo.funzioni.isNotEmpty()) addView(funzioni)
-            addView(gioca, LinearLayout.LayoutParams(MATCH, dp(44)).apply { topMargin = dp(18) })
+            addView(pulsanti, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(18) })
         }
 
         val scheda = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = Stile.vetro(this@GamingActivity, RAGGIO)
             clipToOutline = true
-            addView(copertina, LinearLayout.LayoutParams(MATCH, dp(150)))
+            addView(copertina, LinearLayout.LayoutParams(MATCH, 0, 1f))
             addView(dettagli, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 
-        // Selezionata: viene in avanti con ombra e alone del colore della console.
-        val margineAlone = dp(22)
-        val margineSotto = dp(18)
-        val alone = AloneNeon(this, profilo.colore, margineAlone.toFloat(), (margineAlone + margineSotto).toFloat(), raggio).apply { alpha = 0f }
-        return FrameLayout(this).apply {
-            isFocusable = true
-            isClickable = true
+        // Selezionata: viene un po' in avanti, con un alone del colore della console stretto attorno alla scheda.
+        val margine = dp(ALONE)
+        val alone = AloneNeon(this, profilo.colore, margine.toFloat(), margine.toFloat(), raggio).apply { alpha = 0f }
+        val contenitore = FrameLayout(this).apply {
             clipChildren = false
-            addView(alone, FrameLayout.LayoutParams(MATCH, MATCH).apply {
-                setMargins(-margineAlone, -margineAlone, -margineAlone, -(margineAlone + margineSotto))
-            })
-            addView(scheda, FrameLayout.LayoutParams(MATCH, WRAP))
-            setOnFocusChangeListener { vista, focus ->
-                val scala = if (focus) 1.05f else 1f
-                vista.translationZ = if (focus) dp(10).toFloat() else 0f
-                vista.animate().scaleX(scala).scaleY(scala).translationY(if (focus) -dp(4).toFloat() else 0f).setDuration(180).start()
-                alone.animate().alpha(if (focus) 1f else 0f).setDuration(220).start()
-                gioca.background = if (focus) Stile.pieno(this@GamingActivity, 22, Color.WHITE) else Stile.vetro(this@GamingActivity, 22, forte = true)
-                gioca.setTextColor(if (focus) Stile.SCURO else Stile.TESTO)
+            addView(alone, FrameLayout.LayoutParams(MATCH, MATCH).apply { setMargins(-margine, -margine, -margine, -margine) })
+            addView(scheda, FrameLayout.LayoutParams(MATCH, MATCH))
+        }
+        val aggiorna = View.OnFocusChangeListener { _, _ ->
+            contenitore.post {
+                val attiva = contenitore.hasFocus()
+                val scala = if (attiva) 1.03f else 1f
+                contenitore.translationZ = if (attiva) dp(10).toFloat() else 0f
+                contenitore.animate().scaleX(scala).scaleY(scala).setDuration(180).start()
+                alone.animate().alpha(if (attiva) 1f else 0f).setDuration(220).start()
             }
-            setOnClickListener { Sorgenti.apri(this@GamingActivity, sorgente) }
         }
+        gioca.onFocusChangeListener = concatena(gioca.onFocusChangeListener, aggiorna)
+        immagine.onFocusChangeListener = concatena(immagine.onFocusChangeListener, aggiorna)
+        return contenitore
     }
 
-    /**
-     * Le impostazioni Sony restano quelle di Sony: qui ci sono solo i valori consigliati e la scorciatoia per arrivarci.
-     */
-    private fun pannelloConsigli(): View = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        background = Stile.vetro(this@GamingActivity, 20)
-        setPadding(dp(24), dp(18), dp(24), dp(18))
-        addView(testo("Impostazioni consigliate", 18f, Typeface.BOLD))
-        addView(testo("Le impostazioni immagine valgono per l'ingresso in uso: regolale con la console accesa.", 12f, Typeface.NORMAL).apply {
-            setTextColor(Stile.TESTO_SECONDARIO)
-            setPadding(0, dp(4), 0, dp(10))
-        })
-        addView(rigaConsiglio(
-            "Formato segnale HDMI",
-            "Formato avanzato con VRR su HDMI 3 e HDMI 4 (PlayStation, Xbox)",
-            "Impostazioni › Canali e ingressi › Ingressi esterni › Formato segnale HDMI/VRR"
-        ) { avvia(Intent(Settings.ACTION_SETTINGS), "Impostazioni") })
-        addView(rigaConsiglio(
-            "Modalità immagine",
-            "Gioco",
-            "Immagine Sony › Modalità immagine"
-        ) { avvia(Intent().setComponent(ComponentName(Sonda.IMPOSTAZIONI_SONY, Sonda.IMMAGINE_SONY)), "Immagine Sony") })
+    /** Pulsante di vetro che diventa bianco quando è selezionato. */
+    private fun pulsante(etichetta: String, azione: () -> Unit) = testo(etichetta, 16f, Typeface.BOLD).apply {
+        gravity = Gravity.CENTER
+        isFocusable = true
+        isClickable = true
+        background = Stile.vetro(this@GamingActivity, 24, forte = true)
+        onFocusChangeListener = View.OnFocusChangeListener { _, focus ->
+            background = if (focus) Stile.pieno(this@GamingActivity, 24, Color.WHITE) else Stile.vetro(this@GamingActivity, 24, forte = true)
+            setTextColor(if (focus) Stile.SCURO else Stile.TESTO)
+        }
+        setOnClickListener { azione() }
     }
 
-    private fun rigaConsiglio(titolo: String, valore: String, percorso: String, azione: () -> Unit): View {
-        val normale = Stile.pieno(this, 14, Color.TRANSPARENT)
-        val selezionata = Stile.vetroSelezionato(this, 14)
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            background = normale
-            isFocusable = true
-            isClickable = true
-            setPadding(dp(14), dp(10), dp(14), dp(10))
-            addView(LinearLayout(this@GamingActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(LinearLayout(this@GamingActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    addView(testo(titolo, 15f, Typeface.BOLD))
-                    addView(testo(valore, 15f, Typeface.NORMAL).apply { setPadding(dp(12), 0, 0, 0) })
-                })
-                addView(testo(percorso, 12f, Typeface.NORMAL).apply {
-                    setTextColor(Stile.TESTO_SECONDARIO)
-                    setPadding(0, dp(2), 0, 0)
-                })
-            }, LinearLayout.LayoutParams(0, WRAP, 1f))
-            addView(testo("Apri ›", 14f, Typeface.BOLD))
-            layoutParams = LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4) }
-            setOnFocusChangeListener { vista, focus -> vista.background = if (focus) selezionata else normale }
-            setOnClickListener { azione() }
+    private fun concatena(primo: View.OnFocusChangeListener?, secondo: View.OnFocusChangeListener) =
+        View.OnFocusChangeListener { vista, focus ->
+            primo?.onFocusChange(vista, focus)
+            secondo.onFocusChange(vista, focus)
         }
-    }
 
     private fun profilo(nome: String): Profilo {
         val n = nome.lowercase()
@@ -243,15 +207,6 @@ class GamingActivity : Activity() {
 
     private fun scurisci(colore: Int) = Color.rgb(Color.red(colore) * 35 / 100, Color.green(colore) * 35 / 100, Color.blue(colore) * 35 / 100)
 
-    private fun avvia(intent: Intent, descrizione: String) {
-        try {
-            startActivity(intent)
-            Registro.aggiungi(this, Registro.EVENTI, "Aperto: $descrizione")
-        } catch (e: Exception) {
-            Registro.aggiungi(this, Registro.EVENTI, "Non apribile: $descrizione (${e.javaClass.simpleName})")
-        }
-    }
-
     private fun testo(contenuto: String, dimensione: Float, stile: Int) = TextView(this).apply {
         text = contenuto
         setTextColor(Stile.TESTO)
@@ -265,5 +220,6 @@ class GamingActivity : Activity() {
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         private const val RAGGIO = 24
+        private const val ALONE = 12
     }
 }

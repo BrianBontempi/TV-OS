@@ -24,6 +24,7 @@ object ControlloIp {
 
     private const val FILE = "controllo_ip"
     private const val ESITO = "esito"
+    private const val LOCALE = "127.0.0.1"
 
     /** Esito di una chiamata: il risultato JSON oppure il motivo per cui non è arrivato. */
     private class Risposta(val risultato: JSONArray?, val problema: String?)
@@ -63,6 +64,40 @@ object ControlloIp {
             Registro.aggiungi(app, Registro.EVENTI, "Prova controllo IP: $riga")
             finito(riga)
         }
+    }
+
+    /** Un'impostazione immagine come la descrive la TV: valore attuale e valori possibili. */
+    data class Voce(val target: String, val valore: String, val scelte: List<String>, val minimo: Int?, val massimo: Int?, val disponibile: Boolean)
+
+    /** Le impostazioni immagine dell'ingresso in uso, o null se la TV non risponde. Da chiamare fuori dal thread principale. */
+    fun leggiImmagine(): List<Voce>? {
+        val elenco = chiama(LOCALE, "video", "getPictureQualitySettings", "1.0", obiettivoTutti()).risultato?.optJSONArray(0) ?: return null
+        return (0 until elenco.length()).mapNotNull { elenco.optJSONObject(it) }.map { voce ->
+            val candidati = voce.optJSONArray("candidate") ?: JSONArray()
+            val scelte = (0 until candidati.length()).mapNotNull { candidati.optJSONObject(it) }
+            val intervallo = scelte.firstOrNull { it.has("max") }
+            Voce(
+                voce.optString("target"),
+                voce.optString("currentValue"),
+                scelte.filter { it.has("value") }.map { it.optString("value") },
+                intervallo?.optInt("min"),
+                intervallo?.optInt("max"),
+                voce.optBoolean("isAvailable", true)
+            )
+        }
+    }
+
+    /**
+     * Cambia le impostazioni immagine dell'ingresso in uso con il comando ufficiale Sony.
+     * Restituisce null se la TV le ha accettate, altrimenti il motivo. Da chiamare fuori dal thread principale.
+     */
+    fun impostaImmagine(valori: Map<String, String>): String? {
+        if (valori.isEmpty()) return null
+        val impostazioni = JSONArray()
+        valori.forEach { (target, valore) -> impostazioni.put(JSONObject().put("target", target).put("value", valore)) }
+        val risposta = chiama(LOCALE, "video", "setPictureQualitySettings", "1.0",
+            JSONArray().put(JSONObject().put("settings", impostazioni)))
+        return risposta.problema
     }
 
     fun ultimoEsito(context: Context): String =
