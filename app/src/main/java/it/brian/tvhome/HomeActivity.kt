@@ -34,6 +34,11 @@ class HomeActivity : Activity() {
     private lateinit var rigaApp: LinearLayout
     private lateinit var rigaSorgenti: LinearLayout
     private lateinit var avvisoHome: View
+    private lateinit var meteo: LinearLayout
+    private lateinit var meteoIcona: TextView
+    private lateinit var meteoTemperatura: TextView
+    private lateinit var meteoCielo: TextView
+    private lateinit var meteoDettagli: TextView
     private lateinit var scorrimentoApp: HorizontalScrollView
     private var larghezzaApp = 0
     private var primaVisibile = 0
@@ -95,6 +100,7 @@ class HomeActivity : Activity() {
             clipToOutline = true
             addView(scorrimentoApp)
         }
+        contenuto.addView(pannelloMeteo(), LinearLayout.LayoutParams(WRAP, WRAP).apply { bottomMargin = dp(18) })
         contenuto.addView(pannelloApp, LinearLayout.LayoutParams(MATCH, WRAP))
 
         rigaSorgenti = LinearLayout(this).apply {
@@ -122,6 +128,39 @@ class HomeActivity : Activity() {
         caricaApp()
         caricaSorgenti()
         controllaTastoHome()
+        Meteo.aggiorna { dati -> runOnUiThread { mostraMeteo(dati) } }
+    }
+
+    /** Meteo sopra la barra delle app; resta nascosto finché non arrivano i dati. */
+    private fun pannelloMeteo(): View {
+        meteoIcona = testo("", 30f, Typeface.NORMAL)
+        meteoTemperatura = testo("", 34f, Typeface.BOLD).apply { setPadding(dp(12), 0, dp(16), 0) }
+        meteoCielo = testo("", 15f, Typeface.BOLD)
+        meteoDettagli = testo("", 12f, Typeface.NORMAL).apply { setTextColor(Stile.TESTO_SECONDARIO) }
+        meteo = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = Stile.vetro(this@HomeActivity, 20)
+            setPadding(dp(20), dp(12), dp(24), dp(12))
+            visibility = View.GONE
+            addView(meteoIcona)
+            addView(meteoTemperatura)
+            addView(LinearLayout(this@HomeActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(meteoCielo)
+                addView(meteoDettagli)
+            })
+        }
+        return meteo
+    }
+
+    private fun mostraMeteo(dati: DatiMeteo) {
+        meteoIcona.text = dati.icona
+        meteoTemperatura.text = "${dati.temperatura}°"
+        meteoCielo.text = dati.cielo
+        val luogo = if (dati.citta.isNotBlank()) "${dati.citta} · " else ""
+        meteoDettagli.text = "${luogo}Max ${dati.massima}° · Min ${dati.minima}°"
+        meteo.visibility = View.VISIBLE
     }
 
     // La Home non si chiude con Indietro.
@@ -175,7 +214,7 @@ class HomeActivity : Activity() {
             else -> "Buonasera"
         }
         val oggi = SimpleDateFormat("EEEE d MMMM", Locale.ITALY).format(Date())
-        data.text = "${oggi.replaceFirstChar { it.uppercase() }} · niente pubblicità, solo le tue cose"
+        data.text = oggi.replaceFirstChar { it.uppercase() }
     }
 
     /** Tutte le app per TV, con le preferite di Brian davanti. Ricostruisce la riga solo se sono cambiate. */
