@@ -47,6 +47,7 @@ class ProvaActivity : Activity() {
             pulsante("Aggiorna app") { Aggiornamento.avvia(this) { avviso(it) } },
             pulsanteHome,
             pulsante("Accessibilità") { apri(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), "Impostazioni accessibilità") },
+            pulsante("Prova controllo IP") { provaControlloIp() },
             pulsante("Salva su USB") { salvaSuUsb() },
             pulsante("Svuota registro") { Registro.svuota(this); aggiorna() }
         ))
@@ -124,6 +125,12 @@ class ProvaActivity : Activity() {
                 testoRapporto.text = rapporto
             }
         }
+    }
+
+    /** Solo letture verso il Controllo IP Sony: non cambia nessuna impostazione. */
+    private fun provaControlloIp() {
+        avviso("Prova del controllo IP in corso…")
+        ControlloIp.avvia(this) { esito -> runOnUiThread { avviso(esito); aggiorna() } }
     }
 
     private fun cambiaIntercettaHome() {

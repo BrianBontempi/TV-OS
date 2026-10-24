@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Il Controllo IP Sony risponde solo in http, dalla TV stessa (127.0.0.1) o dal suo indirizzo di rete locale,
+  che cambia da casa a casa: per questo l'http è permesso. Meteo e aggiornamenti usano comunque https.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

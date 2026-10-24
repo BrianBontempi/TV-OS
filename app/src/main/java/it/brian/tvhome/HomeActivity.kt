@@ -249,6 +249,7 @@ class HomeActivity : Activity() {
                 Sorgenti.apri(this, sorgente)
             })
         }
+        rigaSorgenti.addView(pillola("Gaming") { avvia(Intent(this, GamingActivity::class.java), "Gaming") })
         if (avevaFocus) rigaSorgenti.getChildAt(0)?.requestFocus()
     }
 

@@ -42,16 +42,18 @@ object Stile {
     }
 }
 
-/** Sfondo "Aurora" del mockup: quattro macchie di colore sfumate su un viola scuro. */
-class SfondoAurora(context: Context) : View(context) {
-
-    private val base = Color.rgb(26, 18, 64)
-    private val colori = intArrayOf(
+/** Sfondo "Aurora" del mockup: quattro macchie di colore sfumate su un viola scuro (o sui colori dati). */
+class SfondoAurora(
+    context: Context,
+    private val base: Int = Color.rgb(26, 18, 64),
+    private val colori: IntArray = intArrayOf(
         Color.rgb(123, 63, 228),
         Color.rgb(31, 162, 255),
         Color.rgb(255, 79, 163),
         Color.rgb(18, 216, 192)
     )
+) : View(context) {
+
     // Centro (x, y) e raggio in proporzione allo schermo.
     private val macchie = arrayOf(
         floatArrayOf(0.12f, 0.08f, 0.55f),
