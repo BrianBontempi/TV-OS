@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TV Home Prova</string>
+    <string name="a11y_description">Registra i tasti del telecomando e le schermate aperte, e può aprire TV Home quando premi HOME.</string>
+</resources>
