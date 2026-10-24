@@ -62,6 +62,9 @@ class CentroControlloActivity : Activity() {
 
         val pannello = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            // I pulsanti in basso si ingrandiscono un po' quando sono selezionati: non vanno tagliati.
+            clipChildren = false
+            clipToPadding = false
             background = GradientDrawable().apply {
                 cornerRadius = dp(28).toFloat()
                 setColor(Color.argb(222, 30, 28, 48))
@@ -96,6 +99,8 @@ class CentroControlloActivity : Activity() {
         pannello.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
             addView(Stile.pillola(this@CentroControlloActivity, "Tutte le impostazioni") {
                 apri(Intent(Settings.ACTION_SETTINGS))
             }, LinearLayout.LayoutParams(0, dp(46), 1f))
