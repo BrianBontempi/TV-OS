@@ -11,8 +11,8 @@ android {
         applicationId = "it.brian.tvhome"
         minSdk = 28
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1-prova"
+        versionCode = 2
+        versionName = "0.2-prova"
     }
 
     compileOptions {

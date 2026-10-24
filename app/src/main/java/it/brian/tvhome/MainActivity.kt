@@ -1,6 +1,7 @@
 package it.brian.tvhome
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -55,6 +56,16 @@ class MainActivity : Activity() {
 
         rigaIngressi = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         radice.addView(HorizontalScrollView(this).apply { addView(rigaIngressi) })
+
+        val rigaSony = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (classe in Sonda.schermateSony(this)) {
+            val etichetta = if (classe == Sonda.IMMAGINE_SONY) "Immagine Sony" else "Sony ${Sonda.nomeBreve(classe)}"
+            rigaSony.addView(pulsante(etichetta) {
+                apri(Intent().setComponent(ComponentName(Sonda.IMPOSTAZIONI_SONY, classe)), etichetta)
+            })
+        }
+        if (rigaSony.childCount == 0) rigaSony.addView(testo("Nessuna pagina Sony apribile trovata", 18f, false))
+        radice.addView(HorizontalScrollView(this).apply { setPadding(0, dp(12), 0, 0); addView(rigaSony) })
 
         testoRapporto = testo("", 16f, false).apply { typeface = Typeface.MONOSPACE }
         val scorrimento = ScrollView(this).apply {

@@ -16,6 +16,10 @@ object Sonda {
     private val PACCHETTI_INTERESSANTI = Regex("sony|settings|dtv|livetv|launcher|hdmi|cec", RegexOption.IGNORE_CASE)
     private val PROPRIETA_INTERESSANTI = Regex("model|product|sony|bravia|hdmi|cec|vrr|allm|panel|brand", RegexOption.IGNORE_CASE)
 
+    /** App di sistema Sony che contiene le impostazioni immagine, audio e gioco. */
+    const val IMPOSTAZIONI_SONY = "com.sony.dtv.configsettings"
+    const val IMMAGINE_SONY = "com.sony.dtv.configsettings.PictureSettingActivity"
+
     fun ingressi(context: Context): List<TvInputInfo> {
         val manager = context.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager ?: return emptyList()
         return try {
@@ -31,10 +35,25 @@ object Sonda {
         return if (!personalizzato.isNullOrBlank() && personalizzato != nome) "$personalizzato ($nome)" else nome
     }
 
+    /** Schermate esportate dell'app impostazioni Sony, con la pagina immagine per prima. */
+    fun schermateSony(context: Context): List<String> {
+        val nomi = try {
+            context.packageManager.getPackageInfo(IMPOSTAZIONI_SONY, PackageManager.GET_ACTIVITIES)
+                .activities.orEmpty().filter { it.exported }.map { it.name }
+        } catch (e: Exception) {
+            emptyList()
+        }
+        return nomi.sortedBy { if (it == IMMAGINE_SONY) "" else it }
+    }
+
+    fun nomeBreve(classe: String): String =
+        classe.substringAfterLast('.').removeSuffix("Activity").ifBlank { classe }
+
     fun rapporto(context: Context): String = buildString {
         appendLine("TV HOME · RAPPORTO DI PROVA")
         appendLine("Creato: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ITALY).format(Date())}")
         appendLine()
+        sezioneRiassunto(this, context)
         sezioneDispositivo(this)
         sezioneHome(this, context)
         sezioneIngressi(this, context)
@@ -44,6 +63,34 @@ object Sonda {
         sezioneProprieta(this)
         sezioneSchermate(this, context)
     }
+
+    /** Le informazioni che servono davvero, in una schermata sola da fotografare. */
+    private fun sezioneRiassunto(sb: StringBuilder, context: Context) {
+        val manager = context.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
+        val lista = ingressi(context)
+        val perId = lista.associateBy { it.id }
+        sb.appendLine("== RIASSUNTO (fotografa questa parte) ==")
+        sb.appendLine("Console e porte:")
+        val utili = lista.filter { it.type == TvInputInfo.TYPE_HDMI || it.isPassthroughInput }
+        if (utili.isEmpty()) sb.appendLine("  nessun ingresso HDMI visibile")
+        for (info in utili) {
+            val padre = info.parentId?.let { perId[it] }
+            val porta = padre?.let { " → su ${nomeIngresso(context, it)}" } ?: ""
+            sb.appendLine("  ${nomeIngresso(context, info)}$porta · ${stato(manager, info.id)}")
+            sb.appendLine("    id: ${info.id.substringAfterLast('/')}")
+        }
+        sb.appendLine("Pagine impostazioni Sony apribili: ${schermateSony(context).joinToString(", ") { nomeBreve(it) }.ifBlank { "nessuna" }}")
+        sb.appendLine("Ultimi tasti:")
+        sb.appendLine(ultime(Registro.leggi(context, Registro.TASTI), 10))
+        sb.appendLine("Ultime schermate:")
+        sb.appendLine(ultime(Registro.leggi(context, Registro.SCHERMATE), 6))
+        sb.appendLine("Ultimi eventi:")
+        sb.appendLine(ultime(Registro.leggi(context, Registro.EVENTI), 8))
+        sb.appendLine()
+    }
+
+    private fun ultime(testo: String, quante: Int): String =
+        testo.lines().filter { it.isNotBlank() }.takeLast(quante).joinToString("\n") { "  $it" }.ifBlank { "  (vuoto)" }
 
     private fun sezioneDispositivo(sb: StringBuilder) {
         sb.appendLine("== DISPOSITIVO ==")
