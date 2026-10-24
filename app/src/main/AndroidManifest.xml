@@ -49,6 +49,15 @@
             android:exported="false"
             android:launchMode="singleTask" />
 
+        <!-- Pannello sopra quello che si sta guardando: finestra trasparente, in un task tutto suo. -->
+        <activity
+            android:name=".CentroControlloActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <activity
             android:name=".RapportoActivity"
             android:exported="false" />
