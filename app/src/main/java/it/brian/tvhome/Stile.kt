@@ -1,11 +1,13 @@
 package it.brian.tvhome
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.view.View
 
@@ -73,5 +75,67 @@ class SfondoAurora(context: Context) : View(context) {
             canvas.drawCircle(x, y, r, pennello)
         }
         canvas.drawColor(velo)
+    }
+}
+
+/**
+ * Alone "neon" dietro un'app: rettangolo arrotondato sfumato del colore principale dell'app.
+ * La vista è più grande del riquadro di [margine] per lato, così la sfumatura ha spazio.
+ */
+class AloneNeon(context: Context, colore: Int, private val margine: Float, private val raggio: Float) : View(context) {
+
+    private val pennello = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(235, Color.red(colore), Color.green(colore), Color.blue(colore))
+        maskFilter = android.graphics.BlurMaskFilter(margine * 0.7f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+    }
+
+    init {
+        // La sfumatura richiede il disegno software.
+        setLayerType(LAYER_TYPE_SOFTWARE, null)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val bordo = margine * 0.7f
+        canvas.drawRoundRect(bordo, bordo, width - bordo, height - bordo, raggio, raggio, pennello)
+    }
+}
+
+/** Trova il colore che rappresenta un'app guardando il suo banner. */
+object ColoreApp {
+
+    fun principale(disegno: Drawable): Int {
+        val copia = disegno.constantState?.newDrawable()?.mutate() ?: return Color.BLACK
+        val bitmap = Bitmap.createBitmap(48, 27, Bitmap.Config.ARGB_8888)
+        copia.setBounds(0, 0, bitmap.width, bitmap.height)
+        copia.draw(Canvas(bitmap))
+        val pixel = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixel, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        bitmap.recycle()
+
+        // Colori vivi raggruppati per tinta; se non ce ne sono abbastanza, vale il colore medio (es. nero per Apple TV).
+        val pesi = FloatArray(12)
+        val somme = Array(12) { LongArray(4) }
+        val media = LongArray(4)
+        val hsv = FloatArray(3)
+        for (p in pixel) {
+            if (Color.alpha(p) < 128) continue
+            media[0] += Color.red(p).toLong(); media[1] += Color.green(p).toLong(); media[2] += Color.blue(p).toLong(); media[3]++
+            Color.colorToHSV(p, hsv)
+            if (hsv[1] > 0.45f && hsv[2] > 0.35f) {
+                val gruppo = (hsv[0] / 30f).toInt().coerceIn(0, 11)
+                pesi[gruppo] += hsv[1] * hsv[2]
+                somme[gruppo][0] += Color.red(p).toLong(); somme[gruppo][1] += Color.green(p).toLong()
+                somme[gruppo][2] += Color.blue(p).toLong(); somme[gruppo][3]++
+            }
+        }
+        if (media[3] == 0L) return Color.BLACK
+        val migliore = pesi.indices.maxByOrNull { pesi[it] } ?: 0
+        val s = somme[migliore]
+        return if (s[3] >= media[3] / 20 && s[3] > 0) {
+            Color.rgb((s[0] / s[3]).toInt(), (s[1] / s[3]).toInt(), (s[2] / s[3]).toInt())
+        } else {
+            Color.rgb((media[0] / media[3]).toInt(), (media[1] / media[3]).toInt(), (media[2] / media[3]).toInt())
+        }
     }
 }

@@ -86,7 +86,7 @@ class HomeActivity : Activity() {
             isHorizontalScrollBarEnabled = false
             clipToPadding = false
             clipChildren = false
-            setPadding(dp(SPAZIO_APP), dp(20), dp(SPAZIO_APP), dp(14))
+            setPadding(dp(SPAZIO_APP), dp(28), dp(SPAZIO_APP), dp(16))
             addView(rigaApp)
         }
         val pannelloApp = FrameLayout(this).apply {
@@ -232,10 +232,17 @@ class HomeActivity : Activity() {
                 }, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.CENTER))
             }
         }
-        val cornice = View(this).apply { background = Stile.vetroSelezionato(this@HomeActivity, 12); alpha = 0f }
+        // Niente bordo: quando l'app è selezionata compare dietro un alone del suo colore.
+        val margineAlone = dp(16)
+        val alone = AloneNeon(this, ColoreApp.principale(banner ?: app.loadIcon(pm)), margineAlone.toFloat(), dp(14).toFloat()).apply {
+            alpha = 0f
+        }
         val riquadro = FrameLayout(this).apply {
+            clipChildren = false
+            addView(alone, FrameLayout.LayoutParams(MATCH, MATCH).apply {
+                setMargins(-margineAlone, -margineAlone, -margineAlone, -margineAlone)
+            })
             addView(immagine, FrameLayout.LayoutParams(MATCH, MATCH))
-            addView(cornice, FrameLayout.LayoutParams(MATCH, MATCH))
         }
         val etichetta = testo(nome, 11f, Typeface.NORMAL).apply {
             setTextColor(Stile.TESTO_SECONDARIO)
@@ -257,7 +264,7 @@ class HomeActivity : Activity() {
                 if (focus) mostraApp(rigaApp.indexOfChild(vista))
                 val scala = if (focus) 1.12f else 1f
                 vista.animate().scaleX(scala).scaleY(scala).setDuration(150).start()
-                cornice.animate().alpha(if (focus) 1f else 0f).setDuration(150).start()
+                alone.animate().alpha(if (focus) 1f else 0f).setDuration(200).start()
                 etichetta.setTextColor(if (focus) Stile.TESTO else Stile.TESTO_SECONDARIO)
                 etichetta.setTypeface(null, if (focus) Typeface.BOLD else Typeface.NORMAL)
             }
@@ -338,7 +345,7 @@ class HomeActivity : Activity() {
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         private const val APP_VISIBILI = 6
-        private const val SPAZIO_APP = 24
+        private const val SPAZIO_APP = 28
 
         /** Ordine delle app preferite; le altre seguono in ordine alfabetico. */
         private val PREFERITE = listOf(
