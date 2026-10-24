@@ -11,8 +11,26 @@ android {
         applicationId = "it.brian.tvhome"
         minSdk = 28
         targetSdk = 34
-        versionCode = 2
-        versionName = "0.2-prova"
+        // Il numero cresce a ogni compilazione su GitHub, così ogni versione aggiorna la precedente.
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 3
+        versionCode = build
+        versionName = "0.3-prova (build $build)"
+    }
+
+    // Firma fissa: senza, ogni compilazione avrebbe una chiave nuova e Android rifiuterebbe l'aggiornamento.
+    signingConfigs {
+        create("fissa") {
+            storeFile = file("firma.keystore")
+            storePassword = "tvhome-firma"
+            keyAlias = "tvhome"
+            keyPassword = "tvhome-firma"
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("fissa")
+        }
     }
 
     compileOptions {

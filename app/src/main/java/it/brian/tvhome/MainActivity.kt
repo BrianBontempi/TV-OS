@@ -37,12 +37,14 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.rgb(16, 18, 24))
         }
 
-        radice.addView(testo("TV Home · versione di prova", 32f, true))
+        val versione = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "?" }
+        radice.addView(testo("TV Home · versione di prova $versione", 32f, true))
         radice.addView(testo("Premi i pulsanti per i test, poi fotografa il rapporto o salvalo su chiavetta USB.", 18f, false))
 
         pulsanteHome = pulsante("") { cambiaIntercettaHome() }
         radice.addView(riga(
             pulsante("Aggiorna") { aggiorna() },
+            pulsante("Aggiorna app") { Aggiornamento.avvia(this) { avviso(it) } },
             pulsanteHome,
             pulsante("Accessibilità") { apri(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), "Impostazioni accessibilità") },
             pulsante("Salva su USB") { salvaSuUsb() },
@@ -76,6 +78,12 @@ class MainActivity : Activity() {
         radice.addView(scorrimento, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
 
         setContentView(radice)
+        Aggiornamento.gestisciEsito(this, intent) { avviso(it) }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        Aggiornamento.gestisciEsito(this, intent) { avviso(it) }
     }
 
     override fun onResume() {
