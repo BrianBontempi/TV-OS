@@ -2,8 +2,11 @@ package it.brian.tvhome
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
@@ -79,25 +82,105 @@ class SfondoAurora(context: Context) : View(context) {
 }
 
 /**
- * Alone "neon" dietro un'app: rettangolo arrotondato sfumato del colore principale dell'app.
- * La vista è più grande del riquadro di [margine] per lato, così la sfumatura ha spazio.
+ * Dietro un'app selezionata: un'ombra scura spostata in basso, che la fa sembrare sollevata,
+ * e sopra un alone "neon" del colore principale dell'app.
+ * La vista è più grande del riquadro di [margine] per lato (e [margineSotto] in basso), così le sfumature hanno spazio.
  */
-class AloneNeon(context: Context, colore: Int, private val margine: Float, private val raggio: Float) : View(context) {
+class AloneNeon(
+    context: Context,
+    colore: Int,
+    private val margine: Float,
+    private val margineSotto: Float,
+    private val raggio: Float
+) : View(context) {
 
-    private val pennello = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val neon = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(235, Color.red(colore), Color.green(colore), Color.blue(colore))
-        maskFilter = android.graphics.BlurMaskFilter(margine * 0.7f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        maskFilter = BlurMaskFilter(margine * 0.55f, BlurMaskFilter.Blur.NORMAL)
+    }
+    private val ombra = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(170, 0, 0, 0)
+        maskFilter = BlurMaskFilter(margine * 0.6f, BlurMaskFilter.Blur.NORMAL)
     }
 
     init {
-        // La sfumatura richiede il disegno software.
+        // Le sfumature richiedono il disegno software.
         setLayerType(LAYER_TYPE_SOFTWARE, null)
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val bordo = margine * 0.7f
-        canvas.drawRoundRect(bordo, bordo, width - bordo, height - bordo, raggio, raggio, pennello)
+        val sinistra = margine
+        val sopra = margine
+        val destra = width - margine
+        val sotto = height - margineSotto
+        val spostamento = margineSotto * 0.75f
+        val rientro = margine * 0.15f
+        canvas.drawRoundRect(sinistra + rientro, sopra + spostamento, destra - rientro, sotto + spostamento, raggio, raggio, ombra)
+        val fuori = margine * 0.2f
+        canvas.drawRoundRect(sinistra - fuori, sopra - fuori, destra + fuori, sotto + fuori, raggio + fuori, raggio + fuori, neon)
+    }
+}
+
+/**
+ * Il banner dell'app ritagliato con angoli arrotondati e antialiasing, senza fondo dietro:
+ * niente bordini scuri né angoli seghettati.
+ */
+class RiquadroArrotondato(
+    context: Context,
+    private val banner: Drawable?,
+    private val icona: Drawable,
+    private val raggio: Float
+) : View(context) {
+
+    private val pennello = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private var immagine: Bitmap? = null
+
+    override fun onSizeChanged(w: Int, h: Int, vecchiaW: Int, vecchiaH: Int) {
+        super.onSizeChanged(w, h, vecchiaW, vecchiaH)
+        if (w <= 0 || h <= 0) return
+        immagine?.recycle()
+        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val tela = Canvas(bitmap)
+        if (banner != null) {
+            val copia = banner.constantState?.newDrawable(resources)?.mutate() ?: banner
+            copia.setBounds(0, 0, w, h)
+            copia.draw(tela)
+        } else {
+            // App senza banner: vetro chiaro con l'icona al centro.
+            tela.drawColor(Color.argb(46, 255, 255, 255))
+            val lato = (h * 0.55f).toInt()
+            val copia = icona.constantState?.newDrawable(resources)?.mutate() ?: icona
+            copia.setBounds((w - lato) / 2, (h - lato) / 2, (w + lato) / 2, (h + lato) / 2)
+            copia.draw(tela)
+        }
+        immagine = bitmap
+        pennello.shader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        if (immagine == null) return
+        canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), raggio, raggio, pennello)
+    }
+}
+
+/** Riflesso di luce dall'alto sull'app selezionata, come una superficie lucida. */
+class Lucentezza(context: Context, private val raggio: Float) : View(context) {
+
+    private val pennello = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    override fun onSizeChanged(w: Int, h: Int, vecchiaW: Int, vecchiaH: Int) {
+        super.onSizeChanged(w, h, vecchiaW, vecchiaH)
+        pennello.shader = LinearGradient(
+            0f, 0f, 0f, h * 0.6f,
+            Color.argb(56, 255, 255, 255), Color.TRANSPARENT, Shader.TileMode.CLAMP
+        )
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), raggio, raggio, pennello)
     }
 }
 

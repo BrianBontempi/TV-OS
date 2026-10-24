@@ -18,7 +18,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextClock
 import android.widget.TextView
@@ -70,10 +69,12 @@ class HomeActivity : Activity() {
         contenuto.addView(avvisoHome)
         contenuto.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
 
-        // Sempre APP_VISIBILI app intere, con margine laterale uguale allo spazio tra un'app e l'altra.
-        // Le app fuori vista finiscono oltre il bordo del pannello, che le taglia: non se ne vedono mai pezzi.
+        // Sempre APP_VISIBILI app intere e centrate, con margini laterali uguali.
+        // Le app fuori vista vengono nascoste, così non se ne vede mai un pezzo ai lati.
         val larghezzaPannello = resources.displayMetrics.widthPixels - 2 * dp(48)
-        larghezzaApp = (larghezzaPannello - (APP_VISIBILI + 1) * dp(SPAZIO_APP)) / APP_VISIBILI
+        val spazioUtile = larghezzaPannello - 2 * dp(MARGINE_PANNELLO) - (APP_VISIBILI - 1) * dp(SPAZIO_APP)
+        larghezzaApp = spazioUtile / APP_VISIBILI
+        val avanzo = spazioUtile - larghezzaApp * APP_VISIBILI
         rigaApp = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -86,7 +87,7 @@ class HomeActivity : Activity() {
             isHorizontalScrollBarEnabled = false
             clipToPadding = false
             clipChildren = false
-            setPadding(dp(SPAZIO_APP), dp(28), dp(SPAZIO_APP), dp(16))
+            setPadding(dp(MARGINE_PANNELLO) + avanzo / 2, dp(34), dp(MARGINE_PANNELLO) + avanzo - avanzo / 2, dp(22))
             addView(rigaApp)
         }
         val pannelloApp = FrameLayout(this).apply {
@@ -197,6 +198,7 @@ class HomeActivity : Activity() {
         }
         primaVisibile = 0
         scorrimentoApp.scrollTo(0, 0)
+        aggiornaVisibili(animare = false)
         if (avevaFocus) rigaApp.getChildAt(0)?.requestFocus()
     }
 
@@ -216,33 +218,23 @@ class HomeActivity : Activity() {
         val nome = app.loadLabel(pm).toString()
         val banner: Drawable? = app.activityInfo.loadBanner(pm) ?: app.activityInfo.applicationInfo.loadBanner(pm)
 
-        val immagine = FrameLayout(this).apply {
-            // Fondo scuro: dietro gli angoli arrotondati dei banner non deve vedersi il bianco.
-            background = Stile.pieno(this@HomeActivity, 12, if (banner != null) Color.rgb(20, 20, 30) else Color.argb(46, 255, 255, 255))
-            clipToOutline = true
-            if (banner != null) {
-                addView(ImageView(this@HomeActivity).apply {
-                    setImageDrawable(banner)
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                }, FrameLayout.LayoutParams(MATCH, MATCH))
-            } else {
-                addView(ImageView(this@HomeActivity).apply {
-                    setImageDrawable(app.loadIcon(pm))
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                }, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.CENTER))
-            }
-        }
-        // Niente bordo: quando l'app è selezionata compare dietro un alone del suo colore.
-        val margineAlone = dp(16)
-        val alone = AloneNeon(this, ColoreApp.principale(banner ?: app.loadIcon(pm)), margineAlone.toFloat(), dp(14).toFloat()).apply {
+        val icona = app.loadIcon(pm)
+        val raggio = dp(RAGGIO_APP).toFloat()
+        val immagine = RiquadroArrotondato(this, banner, icona, raggio)
+        val riflesso = Lucentezza(this, raggio).apply { alpha = 0f }
+        // Quando l'app è selezionata compaiono dietro l'ombra e l'alone del suo colore.
+        val margineAlone = dp(22)
+        val margineSotto = dp(18)
+        val alone = AloneNeon(this, ColoreApp.principale(banner ?: icona), margineAlone.toFloat(), (margineAlone + margineSotto).toFloat(), raggio).apply {
             alpha = 0f
         }
         val riquadro = FrameLayout(this).apply {
             clipChildren = false
             addView(alone, FrameLayout.LayoutParams(MATCH, MATCH).apply {
-                setMargins(-margineAlone, -margineAlone, -margineAlone, -margineAlone)
+                setMargins(-margineAlone, -margineAlone, -margineAlone, -(margineAlone + margineSotto))
             })
             addView(immagine, FrameLayout.LayoutParams(MATCH, MATCH))
+            addView(riflesso, FrameLayout.LayoutParams(MATCH, MATCH))
         }
         val etichetta = testo(nome, 11f, Typeface.NORMAL).apply {
             setTextColor(Stile.TESTO_SECONDARIO)
@@ -262,9 +254,13 @@ class HomeActivity : Activity() {
             addView(etichetta, LinearLayout.LayoutParams(larghezzaApp, WRAP))
             setOnFocusChangeListener { vista, focus ->
                 if (focus) mostraApp(rigaApp.indexOfChild(vista))
-                val scala = if (focus) 1.12f else 1f
-                vista.animate().scaleX(scala).scaleY(scala).setDuration(150).start()
-                alone.animate().alpha(if (focus) 1f else 0f).setDuration(200).start()
+                // L'app selezionata viene in avanti: più grande, un po' più in alto e disegnata sopra le vicine.
+                val scala = if (focus) 1.14f else 1f
+                vista.translationZ = if (focus) dp(10).toFloat() else 0f
+                vista.animate().scaleX(scala).scaleY(scala).translationY(if (focus) -dp(4).toFloat() else 0f)
+                    .setDuration(180).start()
+                alone.animate().alpha(if (focus) 1f else 0f).setDuration(220).start()
+                riflesso.animate().alpha(if (focus) 1f else 0f).setDuration(220).start()
                 etichetta.setTextColor(if (focus) Stile.TESTO else Stile.TESTO_SECONDARIO)
                 etichetta.setTypeface(null, if (focus) Typeface.BOLD else Typeface.NORMAL)
             }
@@ -281,6 +277,17 @@ class HomeActivity : Activity() {
             else -> primaVisibile
         }
         scorrimentoApp.smoothScrollTo(primaVisibile * (larghezzaApp + dp(SPAZIO_APP)), 0)
+        aggiornaVisibili(animare = true)
+    }
+
+    /** Mostra solo le app dentro il pannello; quelle che entrano o escono sfumano. */
+    private fun aggiornaVisibili(animare: Boolean) {
+        for (i in 0 until rigaApp.childCount) {
+            val visibile = i >= primaVisibile && i < primaVisibile + APP_VISIBILI
+            val vista = rigaApp.getChildAt(i)
+            if (animare) vista.animate().alpha(if (visibile) 1f else 0f).setDuration(160).start()
+            else vista.alpha = if (visibile) 1f else 0f
+        }
     }
 
     private fun pillola(etichetta: String, secondario: String? = null, puntino: Int? = null, azione: () -> Unit): View {
@@ -345,7 +352,9 @@ class HomeActivity : Activity() {
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         private const val APP_VISIBILI = 6
-        private const val SPAZIO_APP = 28
+        private const val SPAZIO_APP = 20
+        private const val MARGINE_PANNELLO = 34
+        private const val RAGGIO_APP = 14
 
         /** Ordine delle app preferite; le altre seguono in ordine alfabetico. */
         private val PREFERITE = listOf(
