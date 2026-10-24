@@ -10,9 +10,13 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
+import android.widget.TextView
 
 /** Colori e forme del design v3: vetro chiaro su sfondo aurora. */
 object Stile {
@@ -40,18 +44,41 @@ object Stile {
         cornerRadius = dp(context, raggio).toFloat()
         setColor(colore)
     }
+
+    /** Pillola di vetro per il telecomando: selezionata diventa bianca, con il testo scuro, e si ingrandisce un po'. */
+    fun pillola(context: Context, etichetta: String, azione: () -> Unit) = TextView(context).apply {
+        text = etichetta
+        setTextColor(TESTO)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+        typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        gravity = Gravity.CENTER
+        isFocusable = true
+        isClickable = true
+        maxLines = 1
+        background = vetro(context, 22)
+        setPadding(dp(context, 20), 0, dp(context, 20), 0)
+        setOnFocusChangeListener { vista, focus ->
+            vista.background = if (focus) pieno(context, 22, Color.WHITE) else vetro(context, 22)
+            setTextColor(if (focus) SCURO else TESTO)
+            val scala = if (focus) 1.06f else 1f
+            vista.animate().scaleX(scala).scaleY(scala).setDuration(120).start()
+        }
+        setOnClickListener { azione() }
+    }
 }
 
-/** Sfondo "Aurora" del mockup: quattro macchie di colore sfumate su un viola scuro. */
-class SfondoAurora(context: Context) : View(context) {
-
-    private val base = Color.rgb(26, 18, 64)
-    private val colori = intArrayOf(
+/** Sfondo "Aurora" del mockup: quattro macchie di colore sfumate su un viola scuro (o sui colori dati). */
+class SfondoAurora(
+    context: Context,
+    private val base: Int = Color.rgb(26, 18, 64),
+    private val colori: IntArray = intArrayOf(
         Color.rgb(123, 63, 228),
         Color.rgb(31, 162, 255),
         Color.rgb(255, 79, 163),
         Color.rgb(18, 216, 192)
     )
+) : View(context) {
+
     // Centro (x, y) e raggio in proporzione allo schermo.
     private val macchie = arrayOf(
         floatArrayOf(0.12f, 0.08f, 0.55f),

@@ -16,6 +16,7 @@
         android:banner="@drawable/banner"
         android:icon="@drawable/banner"
         android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/rete"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
         <activity
@@ -34,6 +35,23 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".GamingActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ImpostazioniGiocoActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".StoreActivity"
+            android:exported="false"
+            android:launchMode="singleTask" />
+
+        <activity
+            android:name=".RapportoActivity"
+            android:exported="false" />
 
         <activity
             android:name=".ProvaActivity"

@@ -223,7 +223,10 @@ class HomeActivity : Activity() {
         val trovate = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER), 0)
             .filter { it.activityInfo.packageName != packageName }
             .distinctBy { it.activityInfo.packageName }
-            .sortedWith(compareBy<ResolveInfo>({ posizione(it.activityInfo.packageName) }, { it.loadLabel(pm).toString().lowercase() }))
+            // Il nome si legge una volta per app, non a ogni confronto: la Home riappare più in fretta.
+            .map { it to it.loadLabel(pm).toString().lowercase() }
+            .sortedWith(compareBy<Pair<ResolveInfo, String>>({ posizione(it.first.activityInfo.packageName) }, { it.second }))
+            .map { it.first }
         val pacchetti = trovate.map { it.activityInfo.packageName }
         if (pacchetti == pacchettiMostrati) return
         pacchettiMostrati = pacchetti
@@ -249,6 +252,7 @@ class HomeActivity : Activity() {
                 Sorgenti.apri(this, sorgente)
             })
         }
+        rigaSorgenti.addView(pillola("Gaming") { avvia(Intent(this, GamingActivity::class.java), "Gaming") })
         if (avevaFocus) rigaSorgenti.getChildAt(0)?.requestFocus()
     }
 

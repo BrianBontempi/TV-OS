@@ -10,75 +10,154 @@ import android.media.tv.TvInputInfo
 import android.os.Bundle
 import android.provider.Settings
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
-import android.widget.Button
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.TextClock
 import android.widget.TextView
 import android.widget.Toast
 import kotlin.concurrent.thread
 
-/** Schermata di diagnostica (ex versione di prova): test, aggiornamento dell'app e rapporto da fotografare. */
+/** Schermata di diagnostica: aggiornamenti, le mie app, prove e rapporto da fotografare. */
 class ProvaActivity : Activity() {
 
     private lateinit var rigaIngressi: LinearLayout
-    private lateinit var pulsanteHome: Button
+    private lateinit var pulsanteHome: TextView
     private lateinit var testoRapporto: TextView
     private var ultimoRapporto = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val margine = dp(32)
-        val radice = LinearLayout(this).apply {
+        val radice = FrameLayout(this)
+        radice.addView(SfondoAurora(this), FrameLayout.LayoutParams(MATCH, MATCH))
+        // Un velo scuro in più: qui si legge molto testo.
+        radice.addView(View(this).apply { setBackgroundColor(Color.argb(90, 0, 0, 0)) }, FrameLayout.LayoutParams(MATCH, MATCH))
+
+        val contenuto = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(margine, margine, margine, margine)
-            setBackgroundColor(Color.rgb(16, 18, 24))
+            setPadding(dp(48), dp(24), dp(48), dp(24))
+            clipChildren = false
+            clipToPadding = false
         }
+        radice.addView(contenuto, FrameLayout.LayoutParams(MATCH, MATCH))
 
         val versione = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "?" }
-        radice.addView(testo("TV Home · diagnostica $versione", 32f, true))
-        radice.addView(testo("Premi i pulsanti per i test, poi fotografa il rapporto o salvalo su chiavetta USB.", 18f, false))
+        contenuto.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(testo("Diagnostica", 30f, true))
+            addView(testo("TV Home $versione", 14f, false).apply {
+                setTextColor(Stile.TESTO_SECONDARIO)
+                setPadding(dp(16), dp(8), 0, 0)
+            })
+            addView(View(this@ProvaActivity), LinearLayout.LayoutParams(0, 1, 1f))
+            addView(TextClock(this@ProvaActivity).apply {
+                format24Hour = "HH:mm"
+                format12Hour = "HH:mm"
+                setTextColor(Stile.TESTO)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+                setTypeface(typeface, Typeface.BOLD)
+            })
+        })
 
-        pulsanteHome = pulsante("") { cambiaIntercettaHome() }
-        radice.addView(riga(
-            pulsante("Aggiorna") { aggiorna() },
-            pulsante("Aggiorna app") { Aggiornamento.avvia(this) { avviso(it) } },
+        pulsanteHome = Stile.pillola(this, "") { cambiaIntercettaHome() }
+        contenuto.addView(sezione("App",
+            Stile.pillola(this, "Aggiorna app") { Aggiornamento.avvia(this) { avviso(it) } },
+            Stile.pillola(this, "Le mie app") { startActivity(Intent(this, StoreActivity::class.java)) },
             pulsanteHome,
-            pulsante("Accessibilità") { apri(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), "Impostazioni accessibilità") },
-            pulsante("Salva su USB") { salvaSuUsb() },
-            pulsante("Svuota registro") { Registro.svuota(this); aggiorna() }
+            Stile.pillola(this, "Accessibilità") { apri(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), "Impostazioni accessibilità") }
         ))
-        radice.addView(riga(
-            pulsante("Impostazioni") { apri(Intent(Settings.ACTION_SETTINGS), "Impostazioni") },
-            pulsante("Schermo") { apri(Intent(Settings.ACTION_DISPLAY_SETTINGS), "Impostazioni schermo") },
-            pulsante("Audio") { apri(Intent(Settings.ACTION_SOUND_SETTINGS), "Impostazioni audio") }
+        contenuto.addView(sezione("Prove",
+            Stile.pillola(this, "Prova controllo IP") { provaControlloIp() },
+            Stile.pillola(this, "Rapporto a schermo intero") {
+                RapportoActivity.apri(this, "Rapporto completo", ultimoRapporto.ifBlank { "Raccolta dati in corso: riprova tra qualche secondo." })
+            },
+            Stile.pillola(this, "Aggiorna rapporto") { aggiorna() },
+            Stile.pillola(this, "Salva su USB") { salvaSuUsb() },
+            Stile.pillola(this, "Svuota registro") { Registro.svuota(this); aggiorna() }
         ))
 
-        rigaIngressi = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        radice.addView(HorizontalScrollView(this).apply { addView(rigaIngressi) })
-
-        val rigaSony = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val scorciatoie = mutableListOf<View>(
+            Stile.pillola(this, "Impostazioni") { apri(Intent(Settings.ACTION_SETTINGS), "Impostazioni") },
+            Stile.pillola(this, "Schermo") { apri(Intent(Settings.ACTION_DISPLAY_SETTINGS), "Impostazioni schermo") },
+            Stile.pillola(this, "Audio") { apri(Intent(Settings.ACTION_SOUND_SETTINGS), "Impostazioni audio") }
+        )
         for (classe in Sonda.schermateSony(this)) {
             val etichetta = if (classe == Sonda.IMMAGINE_SONY) "Immagine Sony" else "Sony ${Sonda.nomeBreve(classe)}"
-            rigaSony.addView(pulsante(etichetta) {
+            scorciatoie += Stile.pillola(this, etichetta) {
                 apri(Intent().setComponent(ComponentName(Sonda.IMPOSTAZIONI_SONY, classe)), etichetta)
-            })
+            }
         }
-        if (rigaSony.childCount == 0) rigaSony.addView(testo("Nessuna pagina Sony apribile trovata", 18f, false))
-        radice.addView(HorizontalScrollView(this).apply { setPadding(0, dp(12), 0, 0); addView(rigaSony) })
+        contenuto.addView(sezione("Scorciatoie", *scorciatoie.toTypedArray()))
 
-        testoRapporto = testo("", 16f, false).apply { typeface = Typeface.MONOSPACE }
-        val scorrimento = ScrollView(this).apply {
-            isFocusable = true
-            isFocusableInTouchMode = true
-            addView(testoRapporto)
+        rigaIngressi = rigaPillole()
+        contenuto.addView(sezioneConRiga("Ingressi", rigaIngressi))
+
+        testoRapporto = TextView(this).apply {
+            setTextColor(Stile.TESTO)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.MONOSPACE
+            setLineSpacing(0f, 1.1f)
         }
-        radice.addView(scorrimento, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        val normale = Stile.vetro(this, 20)
+        val selezionato = Stile.vetroSelezionato(this, 20)
+        val pannello = ScrollView(this).apply {
+            isFocusable = true
+            isVerticalScrollBarEnabled = false
+            background = normale
+            setPadding(dp(20), dp(16), dp(20), dp(16))
+            clipToPadding = true
+            addView(testoRapporto)
+            setOnFocusChangeListener { vista, focus -> vista.background = if (focus) selezionato else normale }
+        }
+        contenuto.addView(testo("Rapporto", 13f, true).apply {
+            setTextColor(Stile.TESTO_SECONDARIO)
+            setPadding(dp(4), dp(14), 0, dp(6))
+        })
+        contenuto.addView(pannello, LinearLayout.LayoutParams(MATCH, 0, 1f))
 
         setContentView(radice)
         Aggiornamento.gestisciEsito(this, intent) { avviso(it) }
+    }
+
+    /** Una riga di pillole con il suo titolo a sinistra; scorre di lato se non ci sta. */
+    private fun sezione(titolo: String, vararg pillole: View): View {
+        val riga = rigaPillole()
+        pillole.forEach { riga.addView(it, parametriPillola(riga.childCount == 0)) }
+        return sezioneConRiga(titolo, riga)
+    }
+
+    private fun sezioneConRiga(titolo: String, riga: LinearLayout) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        clipChildren = false
+        clipToPadding = false
+        setPadding(0, dp(14), 0, 0)
+        addView(testo(titolo.uppercase(), 12f, true).apply { setTextColor(Stile.TESTO_SECONDARIO) },
+            LinearLayout.LayoutParams(dp(120), WRAP))
+        addView(HorizontalScrollView(this@ProvaActivity).apply {
+            isHorizontalScrollBarEnabled = false
+            clipChildren = false
+            clipToPadding = false
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            addView(riga)
+        }, LinearLayout.LayoutParams(0, WRAP, 1f))
+    }
+
+    private fun rigaPillole() = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        clipChildren = false
+        clipToPadding = false
+    }
+
+    private fun parametriPillola(prima: Boolean) = LinearLayout.LayoutParams(WRAP, dp(40)).apply {
+        marginStart = if (prima) 0 else dp(10)
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -111,7 +190,8 @@ class ProvaActivity : Activity() {
         rigaIngressi.removeAllViews()
         for (info in Sonda.ingressi(this)) {
             if (info.type == TvInputInfo.TYPE_HDMI || info.isPassthroughInput) {
-                rigaIngressi.addView(pulsante("Apri ${Sonda.nomeIngresso(this, info)}") { apriIngresso(info) })
+                rigaIngressi.addView(Stile.pillola(this, Sonda.nomeIngresso(this, info)) { apriIngresso(info) },
+                    parametriPillola(rigaIngressi.childCount == 0))
             }
         }
 
@@ -122,6 +202,18 @@ class ProvaActivity : Activity() {
             runOnUiThread {
                 ultimoRapporto = rapporto
                 testoRapporto.text = rapporto
+            }
+        }
+    }
+
+    /** Solo letture verso il Controllo IP Sony: non cambia nessuna impostazione. */
+    private fun provaControlloIp() {
+        avviso("Prova del controllo IP in corso…")
+        ControlloIp.avvia(this) { esito ->
+            runOnUiThread {
+                avviso(esito)
+                aggiorna()
+                RapportoActivity.apri(this, "Controllo IP Sony", ControlloIp.ultimoEsito(this))
             }
         }
     }
@@ -160,25 +252,11 @@ class ProvaActivity : Activity() {
         }
     }
 
-    private fun riga(vararg viste: View) = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        setPadding(0, dp(12), 0, 0)
-        viste.forEach { addView(it) }
-    }
-
-    private fun pulsante(etichetta: String, azione: () -> Unit) = Button(this).apply {
-        text = etichetta
-        isAllCaps = false
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-        setOnClickListener { azione() }
-    }
-
     private fun testo(contenuto: String, dimensione: Float, grassetto: Boolean) = TextView(this).apply {
         text = contenuto
         setTextColor(Color.WHITE)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, dimensione)
         if (grassetto) setTypeface(typeface, Typeface.BOLD)
-        setPadding(0, dp(8), 0, 0)
     }
 
     private fun avviso(messaggio: String) = Toast.makeText(this, messaggio, Toast.LENGTH_LONG).show()
@@ -186,6 +264,8 @@ class ProvaActivity : Activity() {
     private fun dp(valore: Int) = (valore * resources.displayMetrics.density).toInt()
 
     companion object {
+        private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
+        private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         private const val RICHIESTA_SALVA = 1
     }
 }
