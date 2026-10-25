@@ -426,6 +426,14 @@ class HomeActivity : Activity() {
                 mostraMenu(app, vista)
                 true
             }
+            // Ai bordi della riga le frecce non fanno niente: niente salto alle sorgenti sotto,
+            // e niente scorrimento a vuoto dopo l'ultima app, che lascerebbe le app tagliate.
+            setOnKeyListener { vista, codice, evento ->
+                val indice = rigaApp.indexOfChild(vista)
+                evento.action == KeyEvent.ACTION_DOWN &&
+                    ((codice == KeyEvent.KEYCODE_DPAD_LEFT && indice == 0) ||
+                        (codice == KeyEvent.KEYCODE_DPAD_RIGHT && indice == rigaApp.childCount - 1))
+            }
         }
     }
 
