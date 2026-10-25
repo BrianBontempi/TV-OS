@@ -5,7 +5,7 @@ import android.media.AudioAttributes
 import android.media.SoundPool
 
 /**
- * I suoni dell'interfaccia, fatti apposta per TV Home in stile Apple TV: un tic morbido quando si sposta la selezione,
+ * I suoni dell'interfaccia, fatti apposta per TV Home in stile Apple TV (versione "bolla", bassi e rotondi): un tic quando si sposta la selezione,
  * un "pop" su OK e un colpetto sordo quando si arriva al bordo. Seguono il volume della TV.
  */
 object Suoni {
