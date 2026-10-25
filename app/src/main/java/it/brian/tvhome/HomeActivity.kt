@@ -1,13 +1,17 @@
 package it.brian.tvhome
 
-import android.app.Activity
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.ResolveInfo
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
@@ -27,7 +31,7 @@ import java.util.Date
 import java.util.Locale
 
 /** La Home vera: saluto, app con i loro banner rettangolari, console riconosciute e scorciatoie Sony. */
-class HomeActivity : Activity() {
+class HomeActivity : SchermataTv() {
 
     private lateinit var saluto: TextView
     private lateinit var data: TextView
@@ -43,14 +47,21 @@ class HomeActivity : Activity() {
     private var larghezzaApp = 0
     private var primaVisibile = 0
     private var pacchettiMostrati = emptyList<String>()
+    private lateinit var radice: FrameLayout
+    private lateinit var contenuto: LinearLayout
+    private lateinit var suggerimento: TextView
+    private var menu: MenuApp? = null
+    // L'app che si sta spostando con le frecce, e la sua animazione "tremolante" come su Apple TV.
+    private var spostata: View? = null
+    private var tremolio: ObjectAnimator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val radice = FrameLayout(this)
+        radice = FrameLayout(this)
         radice.addView(SfondoAurora(this), FrameLayout.LayoutParams(MATCH, MATCH))
 
-        val contenuto = LinearLayout(this).apply {
+        contenuto = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(48), dp(28), dp(48), dp(24))
             clipChildren = false
@@ -117,6 +128,15 @@ class HomeActivity : Activity() {
             addView(rigaSorgenti)
         })
 
+        suggerimento = testo("Sposta l'app con ← →, poi premi OK", 14f, Typeface.BOLD).apply {
+            background = Stile.vetro(this@HomeActivity, 20, forte = true)
+            setPadding(dp(20), dp(10), dp(20), dp(10))
+            visibility = View.GONE
+        }
+        radice.addView(suggerimento, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+            topMargin = dp(28)
+        })
+
         setContentView(radice)
         caricaApp()
         rigaApp.getChildAt(0)?.requestFocus()
@@ -163,9 +183,94 @@ class HomeActivity : Activity() {
         meteo.visibility = View.VISIBLE
     }
 
-    // La Home non si chiude con Indietro.
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean =
-        if (keyCode == KeyEvent.KEYCODE_BACK) true else super.onKeyDown(keyCode, event)
+    // La Home non si chiude con Indietro: chiude solo il menu dell'app, se è aperto.
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode != KeyEvent.KEYCODE_BACK) return super.onKeyDown(keyCode, event)
+        menu?.chiudi()
+        return true
+    }
+
+    /** Mentre un'app si sposta, le frecce la muovono nella riga e OK o Indietro la lasciano lì. */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val vista = spostata ?: return super.dispatchKeyEvent(event)
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> muovi(vista, -1)
+                KeyEvent.KEYCODE_DPAD_RIGHT -> muovi(vista, +1)
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BACK -> finisciSpostamento()
+            }
+        }
+        // Durante lo spostamento nessun altro tasto fa niente, così l'app non perde la selezione.
+        return true
+    }
+
+    /** Tenendo premuto OK su un'app: Sposta e Disinstalla. */
+    private fun mostraMenu(app: ResolveInfo, vista: View) {
+        val pm = packageManager
+        val pacchetto = app.activityInfo.packageName
+        val nome = app.loadLabel(pm).toString()
+        val diSistema = app.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
+        val togli = if (diSistema) {
+            "Gestisci app" to { avvia(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pacchetto")), "Info app $nome") }
+        } else {
+            "Disinstalla" to { avvia(Intent(Intent.ACTION_DELETE, Uri.parse("package:$pacchetto")), "Disinstalla $nome") }
+        }
+        val nuovo = MenuApp(this, nome, app.loadIcon(pm),
+            if (diSistema) "App preinstallata sulla TV: non si disinstalla, ma dalla sua pagina si può disattivare." else null,
+            listOf("Sposta" to { iniziaSpostamento(vista) }, togli)
+        ) {
+            menu = null
+            contenuto.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            if (spostata == null) vista.requestFocus()
+        }
+        menu = nuovo
+        nuovo.mostra(radice)
+        contenuto.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+    }
+
+    private fun iniziaSpostamento(vista: View) {
+        spostata = vista
+        vista.requestFocus()
+        suggerimento.visibility = View.VISIBLE
+        tremolio = ObjectAnimator.ofFloat(vista, View.ROTATION, -1.2f, 1.2f).apply {
+            duration = 130
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            start()
+        }
+    }
+
+    private fun muovi(vista: View, passo: Int) {
+        val da = rigaApp.indexOfChild(vista)
+        val a = da + passo
+        if (da < 0 || a < 0 || a >= rigaApp.childCount) return Suoni.bordo()
+        Suoni.sposta()
+        // Si sposta la vicina, non l'app selezionata: così la selezione non salta su un'altra app.
+        val vicina = rigaApp.getChildAt(a)
+        rigaApp.removeViewAt(a)
+        rigaApp.addView(vicina, da)
+        // Il primo riquadro non ha spazio a sinistra, gli altri sì.
+        for (i in 0 until rigaApp.childCount) {
+            (rigaApp.getChildAt(i).layoutParams as LinearLayout.LayoutParams).marginStart = if (i == 0) 0 else dp(SPAZIO_APP)
+        }
+        rigaApp.requestLayout()
+        mostraApp(a)
+    }
+
+    private fun finisciSpostamento() {
+        val vista = spostata ?: return
+        Suoni.conferma()
+        spostata = null
+        tremolio?.cancel()
+        tremolio = null
+        vista.rotation = 0f
+        suggerimento.visibility = View.GONE
+        pacchettiMostrati = (0 until rigaApp.childCount).mapNotNull { rigaApp.getChildAt(it).tag as? String }
+        prefs().edit().putString(ORDINE, pacchettiMostrati.joinToString(",")).apply()
+        Registro.aggiungi(this, Registro.EVENTI, "Nuovo ordine delle app salvato")
+    }
+
+    private fun prefs() = getSharedPreferences(FILE_ORDINE, Context.MODE_PRIVATE)
 
     private fun barraSuperiore() = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
@@ -217,15 +322,24 @@ class HomeActivity : Activity() {
         data.text = oggi.replaceFirstChar { it.uppercase() }
     }
 
-    /** Tutte le app per TV, con le preferite di Brian davanti. Ricostruisce la riga solo se sono cambiate. */
+    /**
+     * Tutte le app per TV, nell'ordine scelto da Brian; quelle nuove seguono, con le preferite davanti.
+     * Ricostruisce la riga solo se sono cambiate.
+     */
     private fun caricaApp() {
+        if (spostata != null) return
         val pm = packageManager
+        val ordine = prefs().getString(ORDINE, null)?.split(',').orEmpty()
         val trovate = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER), 0)
             .filter { it.activityInfo.packageName != packageName }
             .distinctBy { it.activityInfo.packageName }
             // Il nome si legge una volta per app, non a ogni confronto: la Home riappare più in fretta.
             .map { it to it.loadLabel(pm).toString().lowercase() }
-            .sortedWith(compareBy<Pair<ResolveInfo, String>>({ posizione(it.first.activityInfo.packageName) }, { it.second }))
+            .sortedWith(compareBy<Pair<ResolveInfo, String>>(
+                { ordine.indexOf(it.first.activityInfo.packageName).let { i -> if (i < 0) ordine.size else i } },
+                { posizione(it.first.activityInfo.packageName) },
+                { it.second }
+            ))
             .map { it.first }
         val pacchetti = trovate.map { it.activityInfo.packageName }
         if (pacchetti == pacchettiMostrati) return
@@ -288,6 +402,7 @@ class HomeActivity : Activity() {
         }
 
         return LinearLayout(this).apply {
+            tag = app.activityInfo.packageName
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             isFocusable = true
@@ -308,6 +423,20 @@ class HomeActivity : Activity() {
                 etichetta.setTypeface(null, if (focus) Typeface.BOLD else Typeface.NORMAL)
             }
             setOnClickListener { apriApp(app.activityInfo.packageName, nome) }
+            setOnLongClickListener { vista ->
+                mostraMenu(app, vista)
+                true
+            }
+            // Ai bordi della riga le frecce non fanno niente: niente salto alle sorgenti sotto,
+            // e niente scorrimento a vuoto dopo l'ultima app, che lascerebbe le app tagliate.
+            setOnKeyListener { vista, codice, evento ->
+                val indice = rigaApp.indexOfChild(vista)
+                val fermo = evento.action == KeyEvent.ACTION_DOWN &&
+                    ((codice == KeyEvent.KEYCODE_DPAD_LEFT && indice == 0) ||
+                        (codice == KeyEvent.KEYCODE_DPAD_RIGHT && indice == rigaApp.childCount - 1))
+                if (fermo) Suoni.bordo()
+                fermo
+            }
         }
     }
 
@@ -398,6 +527,8 @@ class HomeActivity : Activity() {
         private const val SPAZIO_APP = 20
         private const val MARGINE_PANNELLO = 34
         private const val RAGGIO_APP = 14
+        private const val FILE_ORDINE = "ordine_app"
+        private const val ORDINE = "pacchetti"
 
         /** Ordine delle app preferite; le altre seguono in ordine alfabetico. */
         private val PREFERITE = listOf(

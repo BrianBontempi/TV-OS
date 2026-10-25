@@ -1,6 +1,5 @@
 package it.brian.tvhome
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -20,7 +19,7 @@ import kotlin.math.max
  * Rapporto a tutto schermo, da fotografare una pagina alla volta:
  * freccia giù o destra = pagina dopo, freccia su o sinistra = pagina prima.
  */
-class RapportoActivity : Activity() {
+class RapportoActivity : SchermataTv() {
 
     private lateinit var scorrimento: ScrollView
     private lateinit var testo: TextView

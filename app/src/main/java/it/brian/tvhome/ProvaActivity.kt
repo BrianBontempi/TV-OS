@@ -1,6 +1,5 @@
 package it.brian.tvhome
 
-import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Color
@@ -23,7 +22,7 @@ import android.widget.Toast
 import kotlin.concurrent.thread
 
 /** Schermata di diagnostica: aggiornamenti, le mie app, prove e rapporto da fotografare. */
-class ProvaActivity : Activity() {
+class ProvaActivity : SchermataTv() {
 
     private lateinit var rigaIngressi: LinearLayout
     private lateinit var pulsanteHome: TextView
@@ -66,10 +65,16 @@ class ProvaActivity : Activity() {
         })
 
         pulsanteHome = Stile.pillola(this, "") { cambiaIntercettaHome() }
+        val pulsanteSuoni = Stile.pillola(this, etichettaSuoni()) {}
+        pulsanteSuoni.setOnClickListener {
+            Suoni.impostaAttivi(this, !Suoni.attivi())
+            pulsanteSuoni.text = etichettaSuoni()
+        }
         contenuto.addView(sezione("App",
             Stile.pillola(this, "Aggiorna app") { Aggiornamento.avvia(this) { avviso(it) } },
             Stile.pillola(this, "Le mie app") { startActivity(Intent(this, StoreActivity::class.java)) },
             pulsanteHome,
+            pulsanteSuoni,
             Stile.pillola(this, "Accessibilità") { apri(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), "Impostazioni accessibilità") }
         ))
         contenuto.addView(sezione("Prove",
@@ -222,6 +227,8 @@ class ProvaActivity : Activity() {
         Registro.impostaIntercettaHome(this, !Registro.intercettaHome(this))
         aggiorna()
     }
+
+    private fun etichettaSuoni() = if (Suoni.attivi()) "Suoni: attivi" else "Suoni: spenti"
 
     private fun apriIngresso(info: TvInputInfo) {
         val intent = Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(info.id))

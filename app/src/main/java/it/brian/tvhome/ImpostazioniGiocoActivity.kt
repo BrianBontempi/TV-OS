@@ -1,6 +1,5 @@
 package it.brian.tvhome
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -23,7 +22,7 @@ import kotlin.concurrent.thread
  * Le scelte si mandano alla TV quando si apre la console con Gioca, perché Sony le salva per ingresso.
  * Le voci non toccate restano come sono sulla TV.
  */
-class ImpostazioniGiocoActivity : Activity() {
+class ImpostazioniGiocoActivity : SchermataTv() {
 
     private lateinit var console: String
     private lateinit var elenco: LinearLayout

@@ -70,8 +70,51 @@ object ControlloIp {
     data class Voce(val target: String, val valore: String, val scelte: List<String>, val minimo: Int?, val massimo: Int?, val disponibile: Boolean)
 
     /** Le impostazioni immagine dell'ingresso in uso, o null se la TV non risponde. Da chiamare fuori dal thread principale. */
-    fun leggiImmagine(): List<Voce>? {
-        val elenco = chiama(LOCALE, "video", "getPictureQualitySettings", "1.0", obiettivoTutti()).risultato?.optJSONArray(0) ?: return null
+    fun leggiImmagine(): List<Voce>? =
+        voci(chiama(LOCALE, "video", "getPictureQualitySettings", "1.0", obiettivoTutti()))
+
+    /** Le impostazioni audio (es. outputTerminal, l'uscita audio), o null se la TV non risponde. Fuori dal thread principale. */
+    fun leggiAudio(): List<Voce>? =
+        voci(chiama(LOCALE, "audio", "getSoundSettings", "1.1", obiettivoTutti()))
+
+    /** Cambia le impostazioni audio. Restituisce null se la TV le ha accettate, altrimenti il motivo. */
+    fun impostaAudio(valori: Map<String, String>): String? {
+        if (valori.isEmpty()) return null
+        val impostazioni = JSONArray()
+        valori.forEach { (target, valore) -> impostazioni.put(JSONObject().put("target", target).put("value", valore)) }
+        return chiama(LOCALE, "audio", "setSoundSettings", "1.1",
+            JSONArray().put(JSONObject().put("settings", impostazioni))).problema
+    }
+
+    /** Il volume di un'uscita audio, come lo descrive la TV. */
+    data class Volume(val target: String, val livello: Int, val massimo: Int, val muto: Boolean)
+
+    /** Il volume dell'uscita in uso (la prima che la TV elenca), o null se la TV non risponde. */
+    fun leggiVolume(): Volume? {
+        val elenco = chiama(LOCALE, "audio", "getVolumeInformation", "1.0", JSONArray()).risultato?.optJSONArray(0) ?: return null
+        val voce = elenco.optJSONObject(0) ?: return null
+        return Volume(voce.optString("target"), voce.optInt("volume"), voce.optInt("maxVolume", 100), voce.optBoolean("mute"))
+    }
+
+    /** Cambia il volume: un numero ("25") o un passo ("+1", "-1"). Restituisce null se riuscito, altrimenti il motivo. */
+    fun cambiaVolume(target: String, valore: String): String? =
+        chiama(LOCALE, "audio", "setAudioVolume", "1.0",
+            JSONArray().put(JSONObject().put("target", target).put("volume", valore))).problema
+
+    fun impostaMuto(muto: Boolean): String? =
+        chiama(LOCALE, "audio", "setAudioMute", "1.0", JSONArray().put(JSONObject().put("status", muto))).problema
+
+    /** Mette la TV in standby. */
+    fun spegniTv(): String? =
+        chiama(LOCALE, "system", "setPowerStatus", "1.0", JSONArray().put(JSONObject().put("status", false))).problema
+
+    /** L'indirizzo Sony di quello che si sta guardando (es. "extInput:hdmi?port=3"), o null se è un'app. */
+    fun inVisione(): String? =
+        chiama(LOCALE, "avContent", "getPlayingContentInfo", "1.0", JSONArray()).risultato?.optJSONObject(0)?.optString("uri")?.ifBlank { null }
+
+    /** Le voci di una risposta get...Settings: valore attuale, scelte possibili e intervallo. */
+    private fun voci(risposta: Risposta): List<Voce>? {
+        val elenco = risposta.risultato?.optJSONArray(0) ?: return null
         return (0 until elenco.length()).mapNotNull { elenco.optJSONObject(it) }.map { voce ->
             val candidati = voce.optJSONArray("candidate") ?: JSONArray()
             val scelte = (0 until candidati.length()).mapNotNull { candidati.optJSONObject(it) }

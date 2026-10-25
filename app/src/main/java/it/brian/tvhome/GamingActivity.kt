@@ -1,6 +1,5 @@
 package it.brian.tvhome
 
-import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -15,7 +14,7 @@ import android.widget.TextClock
 import android.widget.TextView
 
 /** Sezione Gaming: una scheda a tutto schermo per ogni console riconosciuta sulle HDMI. */
-class GamingActivity : Activity() {
+class GamingActivity : SchermataTv() {
 
     private lateinit var rigaConsole: LinearLayout
 
