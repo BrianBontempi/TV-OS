@@ -1,6 +1,5 @@
 package it.brian.tvhome
 
-import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -26,7 +25,7 @@ import kotlin.concurrent.thread
  * "Le mie app": gli APK pubblicati nelle release del repository GitHub, da installare con un clic.
  * Per aggiungere un'app basta caricare il suo APK in una release su GitHub.
  */
-class StoreActivity : Activity() {
+class StoreActivity : SchermataTv() {
 
     private lateinit var elenco: LinearLayout
     private lateinit var stato: TextView

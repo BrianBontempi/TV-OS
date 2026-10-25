@@ -2,7 +2,6 @@ package it.brian.tvhome
 
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
-import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -32,7 +31,7 @@ import java.util.Date
 import java.util.Locale
 
 /** La Home vera: saluto, app con i loro banner rettangolari, console riconosciute e scorciatoie Sony. */
-class HomeActivity : Activity() {
+class HomeActivity : SchermataTv() {
 
     private lateinit var saluto: TextView
     private lateinit var data: TextView
@@ -244,7 +243,8 @@ class HomeActivity : Activity() {
     private fun muovi(vista: View, passo: Int) {
         val da = rigaApp.indexOfChild(vista)
         val a = da + passo
-        if (da < 0 || a < 0 || a >= rigaApp.childCount) return
+        if (da < 0 || a < 0 || a >= rigaApp.childCount) return Suoni.bordo()
+        Suoni.sposta()
         // Si sposta la vicina, non l'app selezionata: così la selezione non salta su un'altra app.
         val vicina = rigaApp.getChildAt(a)
         rigaApp.removeViewAt(a)
@@ -259,6 +259,7 @@ class HomeActivity : Activity() {
 
     private fun finisciSpostamento() {
         val vista = spostata ?: return
+        Suoni.conferma()
         spostata = null
         tremolio?.cancel()
         tremolio = null
@@ -430,9 +431,11 @@ class HomeActivity : Activity() {
             // e niente scorrimento a vuoto dopo l'ultima app, che lascerebbe le app tagliate.
             setOnKeyListener { vista, codice, evento ->
                 val indice = rigaApp.indexOfChild(vista)
-                evento.action == KeyEvent.ACTION_DOWN &&
+                val fermo = evento.action == KeyEvent.ACTION_DOWN &&
                     ((codice == KeyEvent.KEYCODE_DPAD_LEFT && indice == 0) ||
                         (codice == KeyEvent.KEYCODE_DPAD_RIGHT && indice == rigaApp.childCount - 1))
+                if (fermo) Suoni.bordo()
+                fermo
             }
         }
     }

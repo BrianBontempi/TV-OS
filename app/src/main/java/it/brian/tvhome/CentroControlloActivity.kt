@@ -1,6 +1,5 @@
 package it.brian.tvhome
 
-import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -34,7 +33,7 @@ import java.util.concurrent.RejectedExecutionException
  * Si apre tenendo premuto HOME. Volume, uscita audio, modalità immagine e spegnimento passano dal Controllo IP Sony;
  * sottotitoli e Bluetooth aprono le impostazioni della TV.
  */
-class CentroControlloActivity : Activity() {
+class CentroControlloActivity : SchermataTv() {
 
     private val lavoro = Executors.newSingleThreadExecutor()
 
@@ -268,6 +267,7 @@ class CentroControlloActivity : Activity() {
     }
 
     private fun cambiaVolume(passo: Int) {
+        Suoni.sposta()
         val v = volume
         if (v == null) {
             val gestore = getSystemService(Context.AUDIO_SERVICE) as AudioManager
