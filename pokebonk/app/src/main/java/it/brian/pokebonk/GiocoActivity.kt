@@ -20,6 +20,7 @@ import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -37,6 +38,7 @@ class GiocoActivity : Activity() {
     private lateinit var pagina: WebView
     private lateinit var messaggio: TextView
     private lateinit var controller: Controller
+    private lateinit var italiano: Italiano
 
     /** La vista che il gioco chiede quando va a schermo intero da solo (requestFullscreen). */
     private var vistaSchermoIntero: View? = null
@@ -61,6 +63,7 @@ class GiocoActivity : Activity() {
         setContentView(radice)
 
         controller = Controller(this, { pagina }) { window.superDispatchKeyEvent(it) }
+        italiano = Italiano(assets)
         pagina = creaPagina()
         if (savedInstanceState == null || pagina.restoreState(savedInstanceState) == null) pagina.loadUrl(INDIRIZZO)
         nascondiBarre()
@@ -98,6 +101,10 @@ class GiocoActivity : Activity() {
                 try { startActivity(Intent(Intent.ACTION_VIEW, request.url)) } catch (e: Exception) { }
                 return true
             }
+
+            // Patch italiano: al posto dei testi inglesi il gioco riceve quelli tradotti (vedi Italiano).
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                italiano.intercetta(request)
 
             override fun onPageFinished(view: WebView, url: String) {
                 if (errore) return
