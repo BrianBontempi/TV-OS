@@ -1,0 +1,45 @@
+name: Compila PokeBonk
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "pokebonk/**"
+      - ".github/workflows/pokebonk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pokebonk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Compila
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Prepara il file
+        run: cp app/build/outputs/apk/debug/app-debug.apk PokeBonk.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PokeBonk
+          path: pokebonk/PokeBonk.apk
+
+      # Va nella release "mie-app" accanto alle altre app: sostituisce solo PokeBonk.apk, il resto non si tocca.
+      - name: Pubblica la versione da scaricare sulla TV
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload mie-app PokeBonk.apk --clobber
